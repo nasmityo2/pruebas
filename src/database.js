@@ -1145,6 +1145,16 @@ function initializeDB() {
     console.error('Error al inicializar métodos de pago/tasas dinámicas:', e.message);
   }
 
+  // ==========================
+  // AUDITORÍA + USUARIOS INTERNOS (Fase 4)
+  // ==========================
+  try {
+    require('./utils/audit').ensureTables();
+    console.log('Tablas de auditoría y usuarios verificadas.');
+  } catch (e) {
+    console.error('Error creando tablas de auditoría/usuarios:', e.message);
+  }
+
   console.log('--- FINAL DE INICIALIZACIÓN DE DB (Base de datos lista) ---');
 }
 

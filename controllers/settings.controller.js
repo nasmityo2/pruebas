@@ -1,5 +1,7 @@
 const { db } = require('../src/database');
 const { loadSettings, saveSettings, getDataBasePath } = require('../src/utils/settings');
+const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
+const { logAction } = require('../src/utils/audit');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -18,6 +20,7 @@ const getRates = (req, res) => {
 };
 
 const updateRates = async (req, res) => {
+  if (!ensureUnlocked(req, res)) return; // cambiar tasa requiere clave admin (si está configurada)
   const { BCV, PARALELO, COP, CALC_METHOD, AUTO_BCV, IVA_PERCENTAGE, IVA_MODE, ENABLE_CASHEA } = req.body;
 
   if (BCV === undefined || PARALELO === undefined || COP === undefined || CALC_METHOD === undefined) {
@@ -93,6 +96,12 @@ const updateRates = async (req, res) => {
       }
     }
 
+    logAction({
+      usuario: operatorFromReq(req), rol: 'admin', accion: 'RATES_UPDATE',
+      entidad: 'settings',
+      detalle: { BCV: fBCV, PARALELO: fPARALELO, COP: fCOP, CALC_METHOD: iCALC, IVA_PERCENTAGE: fIVA, IVA_MODE: sIVA_MODE },
+      ip: req.ip,
+    });
     res.json({
       message: updatedMessage,
       newBcvRate: newBcvRate // Send this back to frontend

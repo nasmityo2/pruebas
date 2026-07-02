@@ -9,6 +9,8 @@ const {
 } = require('../src/utils/license');
 const { loadSettings, saveSettings } = require('../src/utils/settings');
 const { LICENSE_SERVER_URL } = require('../src/config');
+const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
+const { logAction } = require('../src/utils/audit');
 const pkg = require('../package.json');
 
 const BASE = LICENSE_SERVER_URL.replace(/\/+$/, '');
@@ -115,6 +117,9 @@ const activateLicense = async (req, res) => {
     if (!licenseKey || !licenseKey.trim()) {
         return res.status(400).json({ success: false, message: 'Ingresa una clave de licencia.' });
     }
+    // Cambiar la licencia estando YA licenciado requiere clave admin (si está configurada).
+    // La activación de recuperación (app bloqueada/sin licencia) NO se gatea, para no bloquear al dueño.
+    if (getAppStatus().status === 'LICENSED' && !ensureUnlocked(req, res)) return;
     const key = licenseKey.trim().toUpperCase();
     const hwid = getHardwareId();
     const settings = loadSettings();
@@ -132,6 +137,7 @@ const activateLicense = async (req, res) => {
             // Guardamos también la clave en settings para referencia (no es la fuente de verdad).
             saveSettings({ ...settings, licenseKey: key });
             if (global.__invalidateLicenseGate) global.__invalidateLicenseGate();
+            logAction({ usuario: operatorFromReq(req), rol: 'admin', accion: 'LICENSE_ACTIVATE', entidad: 'licencia', detalle: { plan: data.plan }, ip: req.ip });
             return res.json({ success: true, message: '¡Sistema activado con éxito!' });
         }
         return res.status(401).json({ success: false, message: 'No se pudo activar la licencia.' });

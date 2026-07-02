@@ -10,6 +10,7 @@ const LOCALHOST_ONLY_PREFIXES = [
   '/api/utils/configure-firewall',
   '/api/utils/lan-enable',
   '/api/backup',
+  '/api/admin',
 ];
 
 // Cuando NO hay licencia válida, solo se permiten estos recursos (activación + assets).

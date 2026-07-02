@@ -1,6 +1,8 @@
 // controllers/reports.controller.js
 const { db } = require('../src/database');
 const { loadSettings, getDataBasePath } = require('../src/utils/settings');
+const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
+const { logAction } = require('../src/utils/audit');
 const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
 const fs = require('fs');
@@ -742,6 +744,7 @@ const voidSaleTransaction = db.transaction((saleId) => {
 });
 
 const voidSale = (req, res) => {
+  if (!ensureUnlocked(req, res)) return; // requiere clave admin (si está configurada)
   const { saleId } = req.params;
   try {
     const result = voidSaleTransaction(saleId);
@@ -753,6 +756,10 @@ const voidSale = (req, res) => {
       });
     }
 
+    logAction({
+      usuario: operatorFromReq(req), rol: 'admin', accion: 'SALE_VOID',
+      entidad: 'venta', entidadId: saleId, ip: req.ip,
+    });
     res.json({
       success: true,
       message: `Venta #${saleId} anulada con éxito.Se devolvió el stock y se eliminaron pagos / abonos asociados.`
