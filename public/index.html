@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="BodegApp - Sistema de Gestión de Inventario y Ventas">
+    <title>BodegApp | Sistema de Gestión</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="/css/output.css" rel="stylesheet">
+    <link href="/css/theme.css" rel="stylesheet">
+    <link href="/css/toast.css" rel="stylesheet">
+    <script src="/js/JsBarcode.all.min.js"></script>
+    <script src="/js/toast.js" defer></script>
+</head>
+
+<body class="bg-app">
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.body.classList.add('dark-mode');
+        }
+    </script>
+
+    <div class="flex flex-col h-screen overflow-hidden">
+        <!-- BARRA DE TITULO PERSONALIZADA -->
+        <div id="custom-titlebar" class="custom-titlebar flex justify-between items-center px-4 select-none" style="-webkit-app-region: drag; height: 38px; min-height: 38px; box-sizing: border-box;">
+            <div class="flex items-center gap-2" style="-webkit-app-region: no-drag;">
+                <img src="/images/favicon.ico" alt="Logo" class="brand-logo" style="height:18px;width:auto;border-radius:4px;" onerror="this.style.display='none'">
+                <span class="brand-name" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">BodegApp</span>
+            </div>
+            
+            <!-- Drag zone -->
+            <div class="flex-1 h-full"></div>
+
+            <!-- Window Controls -->
+            <div class="flex items-center gap-0.5" style="-webkit-app-region: no-drag;">
+                <button id="win-btn-minimize" class="win-btn" style="width:32px;height:28px;background:transparent;border:none;cursor:pointer;border-radius:5px;display:flex;align-items:center;justify-content:center;" title="Minimizar">
+                    <svg style="width:12px;height:12px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />
+                    </svg>
+                </button>
+                <button id="win-btn-maximize" class="win-btn" style="width:32px;height:28px;background:transparent;border:none;cursor:pointer;border-radius:5px;display:flex;align-items:center;justify-content:center;" title="Maximizar">
+                    <svg style="width:11px;height:11px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2" />
+                    </svg>
+                </button>
+                <button id="win-btn-close" class="win-btn" style="width:32px;height:28px;background:transparent;border:none;cursor:pointer;border-radius:5px;display:flex;align-items:center;justify-content:center;" title="Cerrar">
+                    <svg style="width:12px;height:12px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+
+            <div id="sidebar-container" class="h-full"></div>
+
+            <div class="flex-1 flex flex-col h-full overflow-hidden">
+
+                <div id="topbar-container"></div>
+
+                <iframe name="content-frame" id="content-frame" src="inventario.html" class="flex-1 w-full h-full border-0"
+                    frameborder="0">
+                </iframe>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="mobile-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Acceder desde tu Móvil</h2>
+                <button id="close-mobile-modal"
+                    class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="text-gray-700 space-y-4">
+                <ol class="list-decimal list-inside space-y-2">
+                    <li>Asegúrate de que tu computadora y tu móvil estén conectados a la <strong>misma red
+                            Wi-Fi</strong>.</li>
+                    <li>En el navegador de tu móvil, ingresa <strong>una</strong> de las siguientes direcciones:
+                        <div id="local-ip-urls" class="mt-1 text-center bg-gray-100 p-2 rounded border border-gray-300">
+                            <span class="text-gray-500 text-sm">Obteniendo dirección...</span>
+                        </div>
+                    </li>
+                    <li>O escanea este código QR con la cámara de tu celular:
+                        <div
+                            class="mt-2 flex justify-center items-center bg-gray-100 p-2 rounded border border-gray-300 min-h-[150px]">
+                            <img id="qr-code-image" src="" alt="Código QR" class="hidden max-w-[140px] max-h-[140px]">
+                            <span id="qr-code-loading" class="text-gray-500 text-sm">Generando QR...</span>
+                        </div>
+                    </li>
+                </ol>
+                <p class="text-xs text-gray-500">Nota: Si no funciona, revisa la conexión Wi-Fi y el firewall de tu
+                    computadora.</p>
+            </div>
+            <div class="mt-6 text-right">
+                <button id="close-mobile-modal-btn"
+                    class="bg-gray-200 text-gray-700 py-2 px-4 rounded-md font-semibold hover:bg-gray-300">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-password-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <form id="form-verify-password">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Verificación de Administrador</h2>
+                <p class="text-sm text-gray-600 mb-4">Se requiere contraseña de administrador para continuar.</p>
+                <div>
+                    <label for="verify-password-input"
+                        class="block text-sm font-medium text-gray-700">Contraseña</label>
+                    <input type="password" id="verify-password-input" class="mt-1 block w-full input-text" required>
+                </div>
+                <p id="verify-password-status" class="text-sm mt-3 text-center"></p>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="btn-cancel-verification"
+                        class="bg-gray-200 text-gray-700 py-2 px-4 rounded-md font-semibold hover:bg-gray-300">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700">
+                        Verificar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="sale-complete-modal"
+        class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+            <div class="flex justify-center">
+                <svg class="w-16 h-16 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+            </div>
+            <h2 id="sale-complete-message" class="text-xl font-semibold text-gray-800 mt-4 mb-2">¡Venta Completada!</h2>
+            <p class="text-sm text-gray-600 mb-6">El recibo se está abriendo en una nueva pestaña.</p>
+            <button id="btn-close-sale-complete"
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700">
+                Aceptar
+            </button>
+        </div>
+    </div>
+
+    <div id="global-alert-modal"
+        class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="global-alert-title" class="text-xl font-semibold text-gray-800">Alerta del Sistema</h2>
+                <button id="btn-close-global-alert"
+                    class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <p id="global-alert-message" class="text-gray-700 mb-6 text-center"></p>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" id="btn-global-cancel"
+                    class="bg-gray-200 text-gray-700 py-2 px-4 rounded-md font-semibold hover:bg-gray-300 hidden">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-global-ok"
+                    class="bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700">
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Info Modal (Initial Setup) -->
+    <div id="contact-info-modal"
+        class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden" style="z-index: 9999">
+        <div class="modal-content p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold">Bienvenido a BodegApp</h2>
+                <p class="mt-2">Introduce tus datos para iniciar la prueba.</p>
+            </div>
+
+            <form id="form-contact-info">
+                <div class="mb-5">
+                    <label for="contact-phone" class="block text-sm font-medium mb-1">Número de Teléfono
+                        (WhatsApp)</label>
+                    <input type="tel" id="contact-phone"
+                        class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block input-text"
+                        required placeholder="Ej: 0414-1234567">
+                </div>
+                <div class="mb-6">
+                    <label for="contact-email" class="block text-sm font-medium mb-1">Correo
+                        Electrónico</label>
+                    <input type="email" id="contact-email"
+                        class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block input-text"
+                        required placeholder="ejemplo@correo.com">
+                </div>
+
+                <p id="contact-status" class="text-sm mb-4 text-center text-red-600 font-medium hidden"></p>
+
+                <button type="submit" id="btn-save-contact"
+                    class="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-bold hover:bg-blue-700 transition duration-200 shadow-md">
+                    Registrar y Continuar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Vista Previa de Ticket (NUEVO) -->
+    <div id="ticket-preview-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-auto flex flex-col max-h-[95vh]">
+            <div class="px-4 py-2 border-b flex justify-between items-center bg-gray-50 min-w-[300px]">
+
+
+                <h3 class="font-bold text-gray-700">Vista Previa de Ticket</h3>
+                <button id="btn-close-ticket-preview" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div class="p-2 overflow-y-auto bg-gray-200 flex-1 min-h-0 text-center flex flex-col items-center">
+                <div id="ticket-preview-container" class="bg-white p-4 shadow-xl rounded-sm border-x border-gray-300 inline-block text-left">
+                    <div id="ticket-preview-logo-container" class="flex justify-center mb-2 hidden">
+                        <img id="ticket-preview-logo" src="" alt="Logo" class="max-h-20 object-contain">
+                    </div>
+                    <pre id="ticket-preview-content" class="text-[11px] whitespace-pre-wrap sm:whitespace-pre" style="font-family: 'Courier New', Courier, monospace; line-height: 1.15; color: #000; width: max-content;"></pre>
+                    <div id="ticket-preview-qr-container" class="flex justify-center mt-2 hidden">
+                        <div id="ticket-preview-qr" class="bg-gray-100 p-2 rounded">
+                             <canvas id="qr-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="px-4 py-2 border-t bg-gray-50 flex flex-col space-y-2">
+                <button id="btn-print-ticket-preview" class="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 shadow-md transition duration-200">
+                    Imprimir Ticket
+                </button>
+                <button id="btn-pdf-ticket-preview" class="w-full bg-green-600 text-white py-2 rounded-md font-bold hover:bg-green-700 shadow-md transition duration-200">
+                    Guardar como PDF
+                </button>
+                <button id="btn-cancel-ticket-preview" class="w-full bg-gray-200 text-gray-700 py-2 rounded-md font-semibold hover:bg-gray-300">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Actualización Premium -->
+    <div id="update-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4 text-white flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <h3 class="font-bold text-lg">Actualización Disponible</h3>
+                </div>
+                <button id="btn-close-update" class="text-white opacity-70 hover:opacity-100">&times;</button>
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Nueva Versión:</span>
+                    <span id="update-version-tag" class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">1.2.0</span>
+                </div>
+                <p id="update-description" class="text-gray-700 dark:text-gray-300 text-sm mb-4">
+                    Una nueva versión de BodegApp está lista para descargar. Incluye mejoras de rendimiento y corrección de errores.
+                </p>
+                
+                <div id="changelog-container" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-4 hidden">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Novedades:</h4>
+                    <ul id="update-changelog" class="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                    </ul>
+                </div>
+
+                <div id="update-progress-container" class="hidden mb-4">
+                    <div class="flex justify-between mb-1">
+                        <span class="text-xs font-medium text-blue-700 dark:text-blue-400">Descargando...</span>
+                        <span id="update-progress-percent" class="text-xs font-medium text-blue-700 dark:text-blue-400">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                        <div id="update-progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center mb-4">
+                    <input id="chk-skip-version" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="chk-skip-version" class="ml-2 text-xs text-gray-600 dark:text-gray-400 select-none">
+                        No volver a mostrar este aviso para esta versión
+                    </label>
+                </div>
+
+                <div class="flex flex-col space-y-2">
+                    <button id="btn-start-update" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200 transform hover:scale-[1.02] active:scale-[0.98]">
+                        Actualizar Ahora
+                    </button>
+                    <button id="btn-later-update" class="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold py-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                        Más tarde
+                    </button>
+                </div>
+                <p class="text-[10px] text-gray-400 text-center mt-4">
+                    BodegApp se cerrará automáticamente para completar la instalación.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/initialSetup.js"></script>
+    <script src="/js/updater.js"></script>
+    <script src="/js/reprint.js"></script>
+    <script src="/js/layout.js"></script>
+    <script src="/js/cashea_alerts.js"></script>
+    <script>
+        if (window.electronWindow) {
+            document.getElementById('win-btn-minimize').addEventListener('click', () => {
+                window.electronWindow.minimize();
+            });
+            document.getElementById('win-btn-maximize').addEventListener('click', () => {
+                window.electronWindow.maximize();
+            });
+            document.getElementById('win-btn-close').addEventListener('click', () => {
+                window.electronWindow.close();
+            });
+        } else {
+            const titlebar = document.getElementById('custom-titlebar');
+            if (titlebar) titlebar.style.display = 'none';
+        }
+    </script>
+</body>
+
+</html>

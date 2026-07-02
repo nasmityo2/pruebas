@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS | BodegApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="/css/output.css" rel="stylesheet">
+  <link href="/css/theme.css" rel="stylesheet">
+  <script src="/js/JsBarcode.all.min.js"></script>
+  <style>
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .cashea-percent-btn.active, .cashea-linea-btn.active {
+      border-color: #000000 !important;
+      background-color: #f2ff00 !important;
+    }
+    .cashea-percent-btn.active span, .cashea-linea-btn.active span {
+      color: #000000 !important;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 h-screen flex flex-col">
+  <script>
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.body.classList.add('dark-mode');
+    }
+  </script>
+  <!-- LAYOUT PRINCIPAL -->
+  <div class="flex-1 flex flex-col h-full overflow-hidden">
+
+    <main class="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
+
+      <!-- COLUMNA IZQUIERDA: BUSCADOR Y RESULTADOS -->
+      <div id="pos-products-col" class="w-full md:w-3/5 flex flex-col p-2 md:p-4 h-full overflow-hidden">
+        
+        <!-- Header Móvil para Productos -->
+        <div class="md:hidden flex justify-between items-center mb-2 px-1">
+          <h2 class="text-lg font-bold text-gray-800">Productos</h2>
+          <div class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[10px] font-bold border border-blue-100">
+            BCV: <span id="mobile-bcv-value">--</span>
+          </div>
+        </div>
+
+        <!-- Buscador -->
+        <div class="mb-2">
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+              <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input type="text" id="pos-search-input"
+              placeholder="Buscar producto..."
+              class="pl-9 pr-4 py-2 w-full border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base">
+          </div>
+        </div>
+
+        <!-- Resultados de búsqueda -->
+        <div id="pos-search-results"
+          class="bg-white border border-gray-200 rounded-lg shadow-sm p-1 space-y-1 flex-1 overflow-y-auto hidden md:block">
+          <p id="search-placeholder" class="text-gray-400 text-center p-6 text-sm">Escribe para buscar productos...</p>
+        </div>
+      </div>
+
+      <!-- COLUMNA DERECHA: CARRITO -->
+      <div id="pos-cart-col"
+        class="w-full md:w-2/5 bg-white shadow-lg hidden md:flex flex-col h-full overflow-hidden border-l border-gray-200">
+
+        <!-- Header carrito -->
+        <div class="p-2 md:p-4 border-b border-gray-200 flex justify-between items-center">
+          <h2 class="text-lg md:text-xl font-bold text-gray-800">Carrito</h2>
+
+          <!-- Tasa BCV Display -->
+          <div id="pos-bcv-display"
+            class="hidden md:flex items-center px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold text-sm shadow-sm ml-4 mr-auto">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6">
+              </path>
+            </svg>
+            Tasa BCV: <span id="pos-bcv-value" class="ml-1">--</span>
+          </div>
+
+          <div class="flex space-x-2 ml-3">
+            <!-- Ventas en espera -->
+            <button id="btn-held-sales" title="Ventas en espera"
+              class="flex items-center text-sm bg-gray-600 text-white p-2 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+
+            <!-- Gestión de clientes -->
+            <button id="btn-manage-clients-pos" title="Gestionar clientes"
+              class="flex items-center text-sm bg-gray-600 text-white p-2 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M4.5 19.5A7.5 7.5 0 0 1 12 15a7.5 7.5 0 0 1 7.5 4.5" />
+              </svg>
+            </button>
+
+            <!-- Gestión de caja (apertura/cierre, retiros) -->
+            <button id="btn-daily-close" title="Apertura y cierre de caja"
+              class="flex items-center text-sm bg-gray-600 text-white p-2 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              <!-- Icono Caja Registradora -->
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+                </path>
+              </svg>
+            </button>
+
+            <!-- Configuración de impresión -->
+            <button id="btn-print-settings" title="Configurar impresión"
+              class="flex items-center text-sm bg-gray-600 text-white p-2 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                  d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0 1 13.25 8H6.75A1.75 1.75 0 0 1 5 6.25v-3.5ZM6.75 4.25A.75.75 0 0 1 6 5v.25H5a.75.75 0 0 1 0-1.5h1a.75.75 0 0 1 .75.75Z"
+                  clip-rule="evenodd" />
+                <path
+                  d="M1.995 9.117a.75.75 0 0 1 .75-.75h14.51a.75.75 0 0 1 .75.75v1.258a.75.75 0 0 1-.097.378l-1.03 2.059a.75.75 0 0 1-.653.378H17.25v2.5A1.75 1.75 0 0 1 15.5 17h-11A1.75 1.75 0 0 1 2.75 15.25v-2.5H2.83a.75.75 0 0 1-.652-.378L1.147 10.75a.75.75 0 0 1-.097-.378V9.117ZM13.25 10a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 0 1.5 0v-1.5a.75.75 0 0 0-.75-.75Z" />
+              </svg>
+            </button>
+
+            <!-- Conciliación Cashea -->
+            <button id="btn-cashea-reconciliation" title="Conciliación Cashea (Pagos de la plataforma)"
+              style="display: none;"
+              class="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-[#f2ff00] text-black shadow-sm hover:bg-black hover:text-[#f2ff00] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black active:scale-95">
+              <img src="/images/cashea-logo.png" alt="Cashea" class="h-4">
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista carrito -->
+        <div id="pos-cart-items" class="flex-1 md:overflow-y-auto p-4 space-y-3 min-h-0">
+          <p id="cart-empty-message" class="text-gray-500 text-center">El carrito está vacío</p>
+        </div>
+
+        <!-- Totales y botones principales -->
+        <div class="p-2 md:p-4 bg-gray-50 border-t border-gray-200">
+          <div class="space-y-1 mb-2">
+            <div id="pos-subtotal-container" class="flex justify-between text-xs text-gray-600 hidden">
+              <span>Subtotal:</span>
+              <span id="pos-subtotal-ves">0.00 Bs</span>
+            </div>
+            <div id="pos-tax-container" class="flex justify-between text-xs text-gray-600 hidden">
+              <span>IVA:</span>
+              <span id="pos-tax-ves">0.00 Bs</span>
+            </div>
+            <div class="flex justify-between text-base md:text-lg font-bold text-gray-800">
+              <span>Total (VES):</span>
+              <span id="pos-total-ves">0.00 Bs</span>
+            </div>
+            <div class="flex justify-between text-sm md:text-base font-medium text-gray-600">
+              <span>Total (USD):</span>
+              <span id="pos-total-usd">0.00 $</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1 md:gap-3">
+            <button id="btn-cancelar-venta"
+              class="bg-red-600 text-white py-2 rounded-lg font-bold hover:bg-red-700 disabled:opacity-50 text-[10px] md:text-sm">
+              Cancelar
+            </button>
+            <button id="btn-hold-sale"
+              class="bg-yellow-500 text-white py-2 rounded-lg font-bold hover:bg-yellow-600 disabled:opacity-50 text-[10px] md:text-sm">
+              Espera
+            </button>
+            <button id="btn-pagar"
+              class="bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 text-[10px] md:text-sm">
+              Cobrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Barra inferior móvil -->
+    <div id="mobile-bottom-bar"
+      class="md:hidden h-[60px] bg-white border-t border-gray-200 p-2 flex justify-between items-center z-50">
+      <div class="flex flex-col ml-2">
+        <span class="text-[10px] uppercase text-gray-500 font-bold">Total</span>
+        <span id="mobile-total-display" class="font-bold text-blue-600 text-base">0.00 $</span>
+      </div>
+      <button id="btn-mobile-toggle-view"
+        class="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm active:scale-95 transition-all text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <span>Carrito</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL PAGO -->
+  <!-- ===================== -->
+  <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    style="z-index: 9999 !important;">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Registrar Pago</h3>
+        <button id="btn-cancelar-pago" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <!-- Totales -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-3 border">
+            <p class="text-sm text-gray-500">Total a pagar (VES)</p>
+            <div class="flex items-center justify-between">
+              <p id="modal-total-ves" class="text-2xl font-bold text-gray-800">0.00 Bs</p>
+              <div class="flex bg-gray-200 rounded-lg p-0.5 ml-2">
+                <button type="button" id="btn-round-down" title="Redondear Abajo (10)"
+                  class="px-2 py-1 rounded text-xs font-bold text-gray-600 hover:bg-white hover:text-red-600 transition-colors">↓</button>
+                <button type="button" id="btn-round-none" title="Exacto"
+                  class="px-2 py-1 rounded text-xs font-bold bg-white text-blue-600 shadow-sm border border-gray-300">=0</button>
+                <button type="button" id="btn-round-up" title="Redondear Arriba (10)"
+                  class="px-2 py-1 rounded text-xs font-bold text-gray-600 hover:bg-white hover:text-green-600 transition-colors">↑</button>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 border">
+            <p class="text-sm text-gray-500">Total a pagar (USD)</p>
+            <p id="modal-total-usd" class="text-2xl font-bold text-gray-800">0.00 $</p>
+          </div>
+        </div>
+
+        <!-- Cashea Active Banner (NEW) -->
+        <div id="cashea-active-banner" class="hidden bg-[#f2ff00] border-2 border-black rounded-xl p-3 flex items-center justify-between shadow-sm animate-pulse">
+            <div class="flex items-center gap-3">
+                <img src="/images/cashea-logo.png" alt="Cashea" class="h-5">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-black">Plan Cashea Confirmado</p>
+                    <p class="text-sm font-bold text-black">Cobrar Inicial: <span id="cashea-initial-amount-display">0.00</span> $</p>
+                </div>
+            </div>
+            <button type="button" id="btn-cancel-cashea-flow" class="bg-black text-[#f2ff00] px-3 py-1 rounded-lg text-[10px] font-black uppercase hover:bg-gray-800 transition-all">
+                Cancelar
+            </button>
+        </div>
+
+        <form id="form-pago" class="space-y-3">
+          <!-- Cliente MOVED TO TOP -->
+          <div class="space-y-2 relative border-b border-gray-200 pb-4 mb-2">
+            <div class="flex justify-between items-center">
+              <label class="block text-sm font-medium text-gray-700">Cliente</label>
+              <button type="button" id="btn-add-new-client-pos"
+                class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200">
+                + Nuevo cliente
+              </button>
+            </div>
+
+            <input type="text" id="client-search-payment" placeholder="Buscar cliente por nombre o cédula..."
+              class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+
+            <div id="client-search-results-payment" class="relative text-sm"></div>
+
+            <div id="selected-client-payment"
+              class="hidden mt-2 p-2 rounded-lg bg-blue-50 border border-blue-200 flex justify-between items-center">
+              <div>
+                <p class="text-sm font-semibold text-blue-800">
+                  Cliente: <span id="selected-client-name">—</span>
+                </p>
+                <input type="hidden" id="selected-client-id">
+              </div>
+              <button type="button" id="btn-remove-selected-client"
+                class="text-xs text-red-600 hover:text-red-800 font-medium">
+                Quitar
+              </button>
+            </div>
+          </div>
+
+          <div id="payment-methods-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Renderizado dinámico de métodos de pago -->
+          </div>
+
+          <!-- Faltante / Vuelto -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div id="faltante-container" class="hidden bg-red-50 border border-red-200 rounded-lg p-3">
+              <p class="text-xs font-semibold text-red-600 mb-1">Faltante</p>
+              <p class="text-sm text-red-700">
+                <span id="modal-faltante-ves">0.00 Bs</span> |
+                <span id="modal-faltante-usd">0.00 $</span>
+              </p>
+            </div>
+            <div id="vuelto-container" class="hidden bg-green-50 border border-green-200 rounded-lg p-3">
+              <p class="text-xs font-semibold text-green-600 mb-1">Vuelto a entregar</p>
+              <p class="text-sm text-green-700">
+                <span id="modal-vuelto-ves">0.00 Bs</span> |
+                <span id="modal-vuelto-usd">0.00 $</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Nota de venta -->
+          <div class="mt-3">
+            <label for="sale-nota" class="block text-sm font-medium text-gray-700">Nota de venta (opcional)</label>
+            <textarea id="sale-nota" rows="2" placeholder="Ej: Quién retira, autorización, etc."
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm"></textarea>
+          </div>
+
+        </form>
+      </div>
+      <div class="px-4 py-3 bg-gray-50 border-t flex flex-wrap justify-end gap-2">
+        <button id="btn-cashea-open" type="button" style="display: none;"
+          class="bg-[#f2ff00] px-4 py-2 rounded-lg hover:bg-black group transition-all transform active:scale-95">
+          <img src="/images/cashea-logo.png" alt="Cashea" class="h-6 group-hover:invert transition-all">
+        </button>
+        <button id="btn-guardar-fiado" type="button"
+          class="flex-1 sm:flex-none bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-yellow-600 disabled:opacity-50">
+          Guardar como fiado
+        </button>
+        <button id="btn-completar-venta" type="button"
+          class="flex-1 sm:flex-none bg-green-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-green-700 disabled:opacity-50">
+          Completar venta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL CASHEA -->
+  <!-- ===================== -->
+  <div id="cashea-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[10001] hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col transform transition-all" style="max-height: 85vh;">
+      <!-- Header Estilizado -->
+      <div class="bg-[#f2ff00] px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="bg-black/10 p-2 rounded-lg">
+            <img src="/images/cashea-logo.png" alt="Cashea" class="h-6">
+          </div>
+          <h3 class="text-xl font-bold text-black tracking-tight">Financiamiento Cashea</h3>
+        </div>
+        <button id="btn-cashea-close" class="text-black/60 hover:text-black transition-colors text-2xl font-light">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-6 overflow-y-auto flex-1">
+        <!-- Info Venta Actual -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <p class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Total a Financiar</p>
+            <p id="cashea-total-ves" class="text-2xl font-black text-blue-900">0.00 Bs</p>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total en USD</p>
+            <p id="cashea-total-usd" class="text-2xl font-black text-gray-800">0.00 $</p>
+          </div>
+        </div>
+
+        <!-- Selección de Línea -->
+        <div>
+          <label class="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 text-center">Línea de Crédito y Cuotas</label>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <button id="btn-cashea-linea-cotidiana" class="cashea-linea-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-xs font-black text-gray-700 group-[.active]:text-black">Cotidiana</span>
+              <span class="text-[9px] font-bold text-gray-400 group-[.active]:text-black/60 uppercase">1 Cuota</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-black rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-linea-principal" class="cashea-linea-btn active group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-xs font-black text-gray-700 group-[.active]:text-black">Principal</span>
+              <span class="text-[9px] font-bold text-gray-400 group-[.active]:text-black/60 uppercase">3 Cuotas</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-black rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-linea-6" class="cashea-linea-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-xs font-black text-gray-700 group-[.active]:text-black">Más</span>
+              <span class="text-[9px] font-bold text-gray-400 group-[.active]:text-black/60 uppercase">6 Cuotas</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-black rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-linea-9" class="cashea-linea-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-xs font-black text-gray-700 group-[.active]:text-black">Más</span>
+              <span class="text-[9px] font-bold text-gray-400 group-[.active]:text-black/60 uppercase">9 Cuotas</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-black rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-linea-12" class="cashea-linea-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-xs font-black text-gray-700 group-[.active]:text-black">Más</span>
+              <span class="text-[9px] font-bold text-gray-400 group-[.active]:text-black/60 uppercase">12 Cuotas</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-black rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-linea-15" class="cashea-linea-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-xs font-black text-gray-700 group-[.active]:text-black">Más</span>
+              <span class="text-[9px] font-bold text-gray-400 group-[.active]:text-black/60 uppercase">15 Cuotas</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-black rounded-xl"></div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Selección de Porcentaje Inicial -->
+        <div>
+          <label class="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 text-center">Porcentaje Inicial</label>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            <button id="btn-cashea-60" class="cashea-percent-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-lg font-black text-gray-400 group-[.active]:text-blue-600">60%</span>
+              <span class="text-[8px] font-bold text-gray-400 group-[.active]:text-blue-500 uppercase">Nivel 1</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-blue-600 rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-50" class="cashea-percent-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-lg font-black text-gray-400 group-[.active]:text-blue-600">50%</span>
+              <span class="text-[8px] font-bold text-gray-400 group-[.active]:text-blue-500 uppercase">Nivel 2</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-blue-600 rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-40" class="cashea-percent-btn active group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-lg font-black text-gray-400 group-[.active]:text-blue-600">40%</span>
+              <span class="text-[8px] font-bold text-gray-400 group-[.active]:text-blue-500 uppercase">Nivel 3+</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-blue-600 rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-30" class="cashea-percent-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-lg font-black text-gray-400 group-[.active]:text-blue-600">30%</span>
+              <span class="text-[8px] font-bold text-gray-400 group-[.active]:text-blue-500 uppercase">Nivel 3-4</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-blue-600 rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-25" class="cashea-percent-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-lg font-black text-gray-400 group-[.active]:text-blue-600">25%</span>
+              <span class="text-[8px] font-bold text-gray-400 group-[.active]:text-blue-500 uppercase">Nivel 5</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-blue-600 rounded-xl"></div>
+            </button>
+            <button id="btn-cashea-20" class="cashea-percent-btn group relative overflow-hidden bg-white border-2 border-gray-200 p-2 rounded-xl flex flex-col items-center hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95">
+              <span class="text-lg font-black text-gray-400 group-[.active]:text-blue-600">20%</span>
+              <span class="text-[8px] font-bold text-gray-400 group-[.active]:text-blue-500 uppercase">Nivel 6</span>
+              <div class="absolute inset-0 border-2 border-transparent group-[.active]:border-blue-600 rounded-xl"></div>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-4 pt-4 border-t border-gray-100">
+          <!-- Referencia Cashea -->
+          <div class="relative">
+            <label for="cashea-referencia" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Referencia Externo (Opcional)</label>
+            <input id="cashea-referencia" type="text" placeholder="Ej: CS-987654321" 
+                   class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 font-mono text-lg focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all">
+          </div>
+
+          <!-- Resumen de Pagos -->
+          <div id="cashea-resumen" class="bg-gray-900 rounded-2xl p-5 text-white space-y-4 shadow-xl">
+             <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <span class="text-gray-400 font-bold uppercase text-xs">Pago Inicial</span>
+                <div class="text-right">
+                  <p id="cashea-monto-inicial-usd" class="text-xl font-black text-green-400">0.00 $</p>
+                  <p id="cashea-monto-inicial-ves" class="text-xs text-gray-400">0.00 Bs</p>
+                </div>
+             </div>
+             <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                <div>
+                  <span id="cashea-label-cuotas" class="text-blue-400 font-bold uppercase text-[10px] block mb-0.5">3 CUOTAS DE PAGO</span>
+                  <p id="cashea-monto-cuota-usd" class="text-lg font-black italic">0.00 $</p>
+                  <p id="cashea-monto-cuota-ves" class="text-[10px] text-gray-400 font-bold">0.00 Bs</p>
+                </div>
+                <div class="text-right text-[10px] text-gray-400 font-bold uppercase">
+                  Cada 14 días
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Action -->
+      <div class="p-6 bg-gray-50 border-t flex gap-3 shrink-0">
+        <button id="btn-cashea-cancel" class="flex-1 px-4 py-3 bg-white border-2 border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-100 transition-all uppercase tracking-wider text-sm">
+          Cancelar
+        </button>
+        <button id="btn-cashea-confirm" class="flex-[2] px-4 py-3 bg-black text-[#f2ff00] font-black rounded-xl hover:bg-gray-800 shadow-lg shadow-black/10 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+          Confirmar Plan Cashea
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL VUELTO (CAMBIO) -->
+  <!-- ===================== -->
+  <div id="change-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    style="z-index: 9999 !important;">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Registrar Vuelto</h3>
+        <button id="btn-close-change-modal"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-3 border">
+            <p class="text-sm text-gray-500">Vuelto total (VES)</p>
+            <p id="change-modal-total-ves" class="text-2xl font-bold text-gray-800">0.00 Bs</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 border">
+            <p class="text-sm text-gray-500">Vuelto total (USD)</p>
+            <p id="change-modal-total-usd" class="text-2xl font-bold text-gray-800">0.00 $</p>
+          </div>
+        </div>
+
+        <form id="form-change" class="space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label for="change-usd-efectivo" class="block text-sm font-medium text-gray-700">Entregar USD</label>
+              <div class="flex space-x-2">
+                <input id="change-usd-efectivo" type="number" step="0.01"
+                  class="change-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <button type="button" id="btn-change-todo-usd"
+                  class="mt-1 px-2 text-xs bg-gray-200 rounded hover:bg-gray-300">
+                  Todo
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label for="change-ves-efectivo" class="block text-sm font-medium text-gray-700">Entregar VES</label>
+              <div class="flex space-x-2">
+                <input id="change-ves-efectivo" type="number" step="0.01"
+                  class="change-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <button type="button" id="btn-change-todo-ves"
+                  class="mt-1 px-2 text-xs bg-gray-200 rounded hover:bg-gray-300">
+                  Todo
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label for="change-pagomovil" class="block text-sm font-medium text-gray-700">Entregar PagoMóvil</label>
+              <div class="flex space-x-2">
+                <input id="change-pagomovil" type="number" step="0.01"
+                  class="change-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <button type="button" id="btn-change-todo-pm"
+                  class="mt-1 px-2 text-xs bg-gray-200 rounded hover:bg-gray-300">
+                  Todo
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="change-remaining-container" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+            <p class="text-xs font-semibold text-yellow-700 mb-1">Restante por asignar como vuelto</p>
+            <p class="text-sm text-yellow-800">
+              <span id="change-modal-remaining-ves">0.00 Bs</span>
+            </p>
+          </div>
+
+          <p id="change-status" class="text-xs text-gray-500 mt-2"></p>
+        </form>
+      </div>
+
+      <div class="px-4 py-3 border-t bg-gray-50 flex justify-end space-x-3">
+        <button id="btn-confirmar-vuelto" type="button"
+          class="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-green-700">
+          Confirmar vuelto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL CANTIDAD -->
+  <!-- ===================== -->
+  <div id="quantity-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    style="z-index: 9999 !important;">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 id="quantity-modal-title" class="text-lg font-semibold text-gray-800">Cantidad</h3>
+        <button id="btn-cancelar-cantidad" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-quantity" class="p-4 space-y-3">
+        <div>
+          <label for="quantity-modal-input" class="block text-sm font-medium text-gray-700">Cantidad</label>
+          <input id="quantity-modal-input" type="number" step="0.001" min="0.001"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <p id="quantity-modal-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancelar-cantidad-2"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-blue-700">
+            Aceptar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL PRECIO (CAMBIO DE PRECIO POR LÍNEA) -->
+  <!-- ===================== -->
+  <div id="price-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    style="z-index: 9999 !important;">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 id="price-modal-title" class="text-lg font-semibold text-gray-800">Editar precio</h3>
+        <button id="btn-cancelar-precio" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-price" class="p-4 space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+          <select id="price-modal-moneda"
+            class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+            <option value="VES">Bolívares (VES)</option>
+            <option value="USD_BCV">Dólares (USD BCV)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="price-modal-input" class="block text-sm font-medium text-gray-700">Nuevo precio</label>
+          <input id="price-modal-input" type="number" step="0.01" min="0"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <p id="price-modal-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancelar-precio-2"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-blue-700">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL NUEVO CLIENTE -->
+  <!-- ===================== -->
+  <div id="client-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    style="z-index: 10000 !important;">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 id="client-modal-title" class="text-lg font-semibold text-gray-800">Nuevo cliente</h3>
+        <button id="btn-cancelar-client" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-client" class="p-4 space-y-3">
+        <input type="hidden" id="client-id">
+
+        <div>
+          <label for="client-nombre" class="block text-sm font-medium text-gray-700">Nombre completo</label>
+          <input id="client-nombre" type="text"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label for="client-cedula" class="block text-sm font-medium text-gray-700">Cédula / RIF</label>
+          <input id="client-cedula" type="text"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label for="client-telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+          <input id="client-telefono" type="text"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label for="client-direccion" class="block text-sm font-medium text-gray-700">Dirección</label>
+          <textarea id="client-direccion" rows="2"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+        </div>
+
+        <p id="client-modal-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancelar-client-2"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-blue-700">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL GESTIONAR CLIENTES -->
+  <!-- ===================== -->
+  <div id="client-manage-modal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Gestión de clientes</h3>
+        <button id="btn-close-client-manage"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-3">
+          <div>
+            <label for="manage-client-search" class="block text-sm font-medium text-gray-700">Buscar cliente</label>
+            <input id="manage-client-search" type="text" placeholder="Nombre, cédula, teléfono..."
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+          </div>
+          <ul id="manage-client-results"
+            class="border border-gray-200 rounded-md bg-white max-h-72 overflow-y-auto text-sm divide-y"></ul>
+        </div>
+
+        <form id="form-client-manage" class="space-y-3">
+          <input type="hidden" id="manage-client-id">
+
+          <div>
+            <label for="manage-client-nombre" class="block text-sm font-medium text-gray-700">Nombre completo</label>
+            <input id="manage-client-nombre" type="text"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+          </div>
+
+          <div>
+            <label for="manage-client-cedula" class="block text-sm font-medium text-gray-700">Cédula / RIF</label>
+            <input id="manage-client-cedula" type="text"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+          </div>
+
+          <div>
+            <label for="manage-client-telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+            <input id="manage-client-telefono" type="text"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+          </div>
+
+          <div>
+            <label for="manage-client-direccion" class="block text-sm font-medium text-gray-700">Dirección</label>
+            <textarea id="manage-client-direccion" rows="2"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm"></textarea>
+          </div>
+
+          <p id="client-manage-status" class="text-xs text-gray-500"></p>
+
+          <div class="flex justify-between mt-2">
+            <button type="button" id="btn-cancel-client-manage"
+              class="bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm hover:bg-gray-300">
+              Cerrar
+            </button>
+            <div class="space-x-2">
+              <button type="button" id="btn-delete-client"
+                class="bg-red-600 text-white px-3 py-2 rounded-md text-sm font-semibold hover:bg-red-700">
+                Eliminar
+              </button>
+              <button type="button" id="btn-update-client"
+                class="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-semibold hover:bg-blue-700">
+                Actualizar
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL VENTAS EN ESPERA - NOMBRE -->
+  <!-- ===================== -->
+  <div id="hold-sale-client-modal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Guardar venta en espera</h3>
+        <button id="btn-cancel-hold-sale-client"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <label for="hold-sale-client-name" class="block text-sm font-medium text-gray-700">
+          Nombre o referencia de la venta
+        </label>
+        <input id="hold-sale-client-name" type="text" placeholder="Ej: Juan Pérez, Mesa 3, Pedido 104..."
+          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+
+        <p id="hold-sale-client-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button id="btn-cancel-hold-sale-client-2" type="button"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button id="btn-confirm-hold-sale-client" type="button"
+            class="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-blue-700">
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL LISTA VENTAS EN ESPERA -->
+  <!-- ===================== -->
+  <div id="hold-sales-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Ventas en espera</h3>
+        <button id="btn-close-hold-sales" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <tbody id="hold-sales-list" class="divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+        <p id="hold-sales-status" class="mt-2 text-xs text-gray-500"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL CIERRE Z / GESTIÓN CAJA -->
+  <!-- ===================== -->
+  <div id="cierre-z-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Gestión de caja (Apertura / Cierre / Retiros)</h3>
+        <button id="btn-close-cierre-z" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <!-- Resumen de apertura actual -->
+        <div id="cierre-z-opening-resumen"
+          class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+          <!-- Se rellena desde JS con la información de la apertura del día -->
+        </div>
+
+        <!-- Botones de acciones de caja -->
+        <!-- Botones de acciones de caja -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button id="btn-open-cash-opening-modal"
+            class="w-full bg-green-600 text-white py-2 rounded-md text-sm font-semibold hover:bg-green-700">
+            Apertura de caja
+          </button>
+          <button id="btn-open-withdrawal-modal"
+            class="w-full bg-yellow-500 text-white py-2 rounded-md text-sm font-semibold hover:bg-yellow-600">
+            Registrar retiro de efectivo
+          </button>
+          <button id="btn-open-advance-modal"
+            class="w-full bg-purple-600 text-white py-2 rounded-md text-sm font-semibold hover:bg-purple-700">
+            Servicios
+          </button>
+          <button id="btn-imprimir-cierre-z"
+            class="w-full bg-gray-800 text-white py-2 rounded-md text-sm font-semibold hover:bg-gray-900">
+            Resumen / Cierre Z
+          </button>
+        </div>
+
+        <!-- Resumen de ventas y movimientos -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <h4 class="text-sm font-semibold text-gray-700 mb-2">Resumen del día</h4>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs text-gray-700">
+              <tbody id="cierre-z-summary-body">
+                <!-- Se llena desde JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Notas -->
+        <div>
+          <label for="cierre-z-notas" class="block text-sm font-medium text-gray-700 mb-1">
+            Notas de cierre
+          </label>
+          <textarea id="cierre-z-notas" rows="3"
+            class="w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            placeholder="Anote observaciones, incidencias, arqueos, etc."></textarea>
+        </div>
+
+        <p id="cierre-z-status" class="text-xs text-gray-500"></p>
+      </div>
+
+      <div class="px-4 py-3 border-t bg-gray-50 flex justify-end">
+        <button id="btn-close-cierre-z-2"
+          class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL REGISTRO DE RETIRO -->
+  <!-- ===================== -->
+  <div id="withdrawal-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Registrar retiro de efectivo</h3>
+        <button id="btn-close-withdrawal-modal"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-withdrawal" class="p-4 space-y-3">
+        <div>
+          <label for="withdrawal-method" class="block text-sm font-medium text-gray-700">Método</label>
+          <select id="withdrawal-method"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+            <option value="VES_EFECTIVO">Efectivo VES</option>
+            <option value="USD_EFECTIVO">Efectivo USD</option>
+            <option value="PAGOMOVIL">PagoMóvil (VES)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="withdrawal-amount" class="block text-sm font-medium text-gray-700">Monto</label>
+          <input id="withdrawal-amount" type="number" step="0.01" min="0"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label for="withdrawal-description" class="block text-sm font-medium text-gray-700">Descripción</label>
+          <textarea id="withdrawal-description" rows="2"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            placeholder="Ej: Retiro para depósito, gastos menores, etc."></textarea>
+        </div>
+
+        <p id="withdrawal-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancel-withdrawal"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-yellow-500 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-yellow-600">
+            Guardar retiro
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL APERTURA DE CAJA -->
+  <!-- ===================== -->
+  <div id="cash-opening-modal"
+    class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Apertura de caja</h3>
+        <button id="btn-close-cash-opening-modal"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-cash-opening" class="p-4 space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label for="cash-opening-ves" class="block text-sm font-medium text-gray-700">
+              Fondo en VES
+            </label>
+            <input id="cash-opening-ves" type="number" step="0.01" min="0"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label for="cash-opening-usd" class="block text-sm font-medium text-gray-700">
+              Fondo en USD
+            </label>
+            <input id="cash-opening-usd" type="number" step="0.01" min="0"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label for="cash-opening-notes" class="block text-sm font-medium text-gray-700">
+            Notas
+          </label>
+          <textarea id="cash-opening-notes" rows="2"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            placeholder="Ej: Billetes contados, arqueo inicial, etc."></textarea>
+        </div>
+
+        <p id="cash-opening-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancel-cash-opening"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-green-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-green-700">
+            Guardar apertura
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL VERIFICACIÓN ADMIN -->
+  <!-- ===================== -->
+  <div id="admin-password-modal"
+    class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Confirmación de administrador</h3>
+        <button id="btn-close-admin-password"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-admin-password" class="p-4 space-y-3">
+        <div>
+          <label for="admin-password-input" class="block text-sm font-medium text-gray-700">
+            Contraseña de administrador
+          </label>
+          <input id="admin-password-input" type="password"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <p id="admin-password-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancel-admin-password"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-red-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-red-700">
+            Confirmar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL CONFIGURACIÓN IMPRESIÓN -->
+  <!-- ===================== -->
+  <div id="print-settings-modal"
+    class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Configuración de impresión</h3>
+        <button id="btn-close-print-settings"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <!-- Form -->
+      <form id="form-print-settings" class="p-4 space-y-4 overflow-y-auto flex-1">
+        <!-- Imprimir ticket sí/no -->
+        <div class="space-y-2">
+          <label class="inline-flex items-center space-x-2 text-sm">
+            <input type="checkbox" id="printTicketCheckbox" name="print-ticket-enabled" class="border-gray-300">
+            <span>Imprimir ticket automáticamente al completar una venta</span>
+          </label>
+          <div class="flex flex-col space-y-2 pl-6">
+            <label class="inline-flex items-center space-x-2 text-sm">
+              <input type="checkbox" id="printLogoCheckbox" name="print-logo" class="border-gray-300">
+              <span>Imprimir logo del negocio</span>
+            </label>
+            <label class="inline-flex items-center space-x-2 text-sm">
+              <input type="checkbox" id="printQrCheckbox" name="print-qr" class="border-gray-300">
+              <span>Imprimir código QR</span>
+            </label>
+            <div id="qrContentContainer" class="pl-6 mt-1 hidden">
+              <label class="block text-xs text-gray-500 mb-1">Contenido del Código QR:</label>
+              <input type="text" id="printQrContent" name="print-qr-content" 
+                     class="w-full border-gray-300 rounded-md p-1 text-sm" 
+                     placeholder="https://bodegapp.com.ve">
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de impresoras -->
+        <div>
+          <label for="printerSelect" class="block text-sm font-medium text-gray-700 mb-1">
+            Impresora para tickets
+          </label>
+          <select id="printerSelect" name="printer-name"
+            class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Usar impresora predeterminada del sistema</option>
+          </select>
+          <p class="mt-1 text-xs text-gray-500">
+            Esta lista se llena desde Electron (getPrinters).
+            Si se deja vacío se usará la impresora por defecto del sistema.
+          </p>
+        </div>
+
+        <!-- Modo de Impresión (Preview vs Direct) -->
+        <div>
+          <label for="printMode" class="block text-sm font-medium text-gray-700 mb-1">
+            Modo de Impresión
+          </label>
+          <select id="printMode" name="print-mode"
+            class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+            <option value="direct">Impresión Directa</option>
+            <option value="preview">Vista Previa (Ticket)</option>
+          </select>
+          <p class="mt-1 text-xs text-gray-500">
+            Seleccione si desea imprimir el ticket directamente o ver una vista previa antes de imprimir.
+          </p>
+        </div>
+
+
+        <!-- Copias / ancho de papel -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Copias por ticket
+            </label>
+            <input type="number" name="print-copies" min="1" value="1"
+              class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Ancho de papel
+            </label>
+            <select name="print-paper-width"
+              class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="58">58 mm</option>
+              <option value="80">80 mm</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Información del Negocio (NUEVO) -->
+        <div class="border-t pt-4">
+          <h4 class="text-sm font-bold text-gray-800 mb-3">Información del Negocio</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                RIF del Negocio
+              </label>
+              <input type="text" name="business-rif" placeholder="V-00000000-0"
+                class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono del Negocio
+              </label>
+              <input type="text" name="business-phone" placeholder="0412-0000000"
+                class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Dirección del Negocio
+            </label>
+            <textarea name="business-address" rows="1"
+              class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Calle, Ciudad, Estado..."></textarea>
+          </div>
+        </div>
+
+        <!-- Encabezado -->
+        <div class="border-t pt-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Texto Extra en Encabezado (Opcional)
+          </label>
+          <textarea name="print-header" rows="2"
+            class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Mensaje de bienvenida, oferta especial..."></textarea>
+        </div>
+
+        <!-- Pie de página -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Pie de página
+          </label>
+          <textarea name="print-footer" rows="2"
+            class="block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Gracias por su compra, redes sociales, etc."></textarea>
+        </div>
+
+        <p id="print-settings-status" class="text-xs text-gray-500"></p>
+
+        <!-- Botones -->
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancel-print-settings"
+            class="bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-700">
+            Guardar configuración
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- (Opcional) MODAL MÓVIL / QR (para acceso móvil al POS) -->
+  <!-- ===================== -->
+  <div id="mobile-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Acceso móvil</h3>
+        <button id="close-mobile-modal" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <div class="p-4 space-y-3 text-sm">
+        <p>Escanee el siguiente código QR desde su teléfono para abrir el POS móvil en la misma red.</p>
+
+        <div id="qr-code-loading" class="text-xs text-gray-500">
+          Generando QR...
+        </div>
+
+        <div class="flex justify-center">
+          <img id="qr-code-image" alt="QR POS móvil" class="w-48 h-48 hidden">
+        </div>
+
+        <div>
+          <p class="font-semibold text-gray-700 mb-1">URL locales detectadas:</p>
+          <ul id="local-ip-urls" class="text-xs text-gray-600 space-y-1"></ul>
+        </div>
+      </div>
+
+      <div class="px-4 py-3 border-t bg-gray-50 flex justify-end">
+        <button id="close-mobile-modal-btn"
+          class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL AVANCE / CANJE DE EFECTIVO -->
+  <!-- ===================== -->
+  <div id="advance-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Avance / Canje de Efectivo</h3>
+        <button id="btn-close-advance-modal"
+          class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-advance" class="p-4 space-y-3">
+        <div>
+          <label for="advance-amount-out" class="block text-sm font-medium text-gray-700">Monto efectivo a entregar
+            (Bs)</label>
+          <input id="advance-amount-out" type="number" step="0.01" min="0" placeholder="0.00"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-lg">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="advance-fee-percent" class="block text-sm font-medium text-gray-700">Comisión (%)</label>
+            <input id="advance-fee-percent" type="number" step="0.1" min="0" placeholder="Ej: 10"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label for="advance-fee-amount" class="block text-sm font-medium text-gray-700">Monto Comisión (Bs)</label>
+            <input id="advance-fee-amount" type="number" step="0.01" min="0" placeholder="0.00"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+              readonly>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+          <p class="text-xs text-blue-600 font-semibold uppercase tracking-wide">Total a cobrar al cliente</p>
+          <p id="advance-total-in-display" class="text-2xl font-bold text-blue-800">0.00 Bs</p>
+          <input type="hidden" id="advance-total-in">
+        </div>
+
+        <div>
+          <label for="advance-method-in" class="block text-sm font-medium text-gray-700">Método de cobro</label>
+          <select id="advance-method-in"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+            <option value="PUNTO_VENTA">Punto de Venta (Tarjeta)</option>
+            <option value="BIOPAGO">Biopago</option>
+            <option value="PAGOMOVIL">PagoMóvil</option>
+            <option value="TRANSFERENCIA">Transferencia</option>
+            <option value="USD_EFECTIVO">Efectivo USD (Divisas)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="advance-description" class="block text-sm font-medium text-gray-700">Descripción
+            (Opcional)</label>
+          <textarea id="advance-description" rows="2"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            placeholder="Notas adicionales..."></textarea>
+        </div>
+
+        <p id="advance-status" class="text-xs text-gray-500"></p>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancel-advance"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-purple-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-purple-700">
+            Procesar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL VENTA LIBRE -->
+  <!-- ===================== -->
+  <div id="venta-libre-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">Venta Libre</h3>
+        <button id="btn-close-venta-libre" class="text-gray-500 hover:text-gray-700 focus:outline-none">&times;</button>
+      </div>
+
+      <form id="form-venta-libre" class="p-4 space-y-3">
+        <div>
+          <label for="vl-nombre" class="block text-sm font-medium text-gray-700">Nombre del producto</label>
+          <input id="vl-nombre" type="text" required
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="vl-costo-usd" class="block text-sm font-medium text-gray-700">Costo (USD)</label>
+            <input id="vl-costo-usd" type="number" step="0.01" min="0"
+              class="vl-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label for="vl-costo-ves" class="block text-sm font-medium text-gray-700">Costo (VES)</label>
+            <input id="vl-costo-ves" type="number" step="0.01" min="0"
+              class="vl-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="vl-precio-usd" class="block text-sm font-medium text-gray-700">Precio Venta (USD)</label>
+            <input id="vl-precio-usd" type="number" step="0.01" min="0"
+              class="vl-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label for="vl-precio-ves" class="block text-sm font-medium text-gray-700">Precio Venta (VES)</label>
+            <input id="vl-precio-ves" type="number" step="0.01" min="0"
+              class="vl-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label for="vl-cantidad" class="block text-sm font-medium text-gray-700">Cantidad</label>
+          <input id="vl-cantidad" type="number" step="1" min="1" value="1"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div class="mt-2 text-sm">
+          <label class="inline-flex items-center text-gray-700">
+            <input type="checkbox" id="vl-exento-iva"
+              class="form-checkbox border-gray-300 rounded text-blue-600 focus:ring-blue-500 mr-2" checked>
+            <span class="font-medium">Exento de IVA</span>
+          </label>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" id="btn-cancel-venta-libre"
+            class="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-semibold hover:bg-blue-700">
+            Añadir al carrito
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL CONCILIACIÓN CASHEA -->
+  <!-- ===================== -->
+  <div id="cashea-reconciliation-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[10001] hidden overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col transform transition-all p-0">
+      <div class="bg-black text-[#f2ff00] px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+           <img src="/images/Cashea1.png" alt="Cashea" class="h-6">
+           <h3 class="text-xl font-bold tracking-tight">Conciliación de Payouts Cashea</h3>
+        </div>
+        <button id="btn-cashea-reconcile-close" class="text-white/60 hover:text-white transition-colors text-2xl font-light">&times;</button>
+      </div>
+      
+      <div class="p-6 overflow-y-auto flex-1">
+        <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h4 class="text-gray-900 font-black text-lg">Ventas por Liquidar</h4>
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">Confirma los depósitos recibidos de la plataforma en tu banco.</p>
+          </div>
+          <button id="btn-cashea-reconcile-refresh" class="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition-all font-bold text-xs uppercase">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Refrescar
+          </button>
+        </div>
+        
+        <div class="overflow-x-auto border border-gray-100 rounded-2xl">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-widest border-b border-gray-100">
+                <th class="px-6 py-4">Fecha / Referencia</th>
+                <th class="px-6 py-4">Cliente</th>
+                <th class="px-6 py-4">Línea</th>
+                <th class="px-6 py-4 text-right">Por recibir (%)</th>
+                <th class="px-6 py-4 text-right">Monto USD ($)</th>
+                <th class="px-6 py-4 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="cashea-pending-list" class="divide-y divide-gray-50 text-xs font-bold text-gray-700">
+              <!-- Cargado dinámicamente -->
+              <tr>
+                <td colspan="6" class="px-6 py-10 text-center text-gray-400 italic">No hay ventas pendientes por conciliar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="px-6 py-4 bg-gray-50 border-t flex justify-end">
+        <button id="btn-cashea-reconcile-cancel" class="px-6 py-2.5 rounded-xl bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 font-black text-xs uppercase tracking-widest transition-all">Cerrar Ventana</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MODAL CONFIRMACIÓN (REUSABLE) -->
+  <!-- ===================== -->
+  <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[11000] hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all p-6 text-center">
+      <div id="confirm-modal-icon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+        <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h3 id="confirm-modal-title" class="text-xl font-black text-gray-900 mb-2">¿Estás seguro?</h3>
+      <p id="confirm-modal-message" class="text-sm text-gray-500 mb-6">Esta acción no se puede deshacer de forma sencilla.</p>
+      
+      <div class="flex gap-3">
+        <button id="btn-confirm-cancel" class="flex-1 px-4 py-3 bg-white border-2 border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-all uppercase tracking-widest text-[10px]">
+          Cancelar
+        </button>
+        <button id="btn-confirm-accept" class="flex-1 px-4 py-3 bg-black text-[#f2ff00] font-black rounded-xl hover:bg-gray-800 transition-all uppercase tracking-widest text-[10px]">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/pos.js"></script>
+
+  <!-- ===================== -->
+  <!-- MODAL CONCILIACIÓN CASHEA -->
+  <!-- ===================== -->
+  <div id="cashea-reconciliation-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[10001] hidden overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col transform transition-all p-0">
+      <div class="bg-black text-[#f2ff00] px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+           <img src="/images/cashea-logo.png" alt="Cashea" class="h-6">
+           <h3 class="text-xl font-bold tracking-tight">Conciliación de Payouts Cashea</h3>
+        </div>
+        <button id="btn-cashea-reconcile-close" class="text-white/60 hover:text-white transition-colors text-2xl font-light">&times;</button>
+      </div>
+      
+      <div class="p-6 overflow-y-auto flex-1">
+        <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h4 class="text-gray-900 font-black text-lg">Ventas por Liquidar</h4>
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">Confirma los depósitos recibidos de la plataforma en tu banco.</p>
+          </div>
+          <button id="btn-cashea-reconcile-refresh" class="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition-all font-bold text-xs uppercase">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Refrescar
+          </button>
+        </div>
+        
+        <div class="overflow-x-auto border border-gray-100 rounded-2xl">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-widest border-b border-gray-100">
+                <th class="px-6 py-4">Fecha / Referencia</th>
+                <th class="px-6 py-4">Cliente</th>
+                <th class="px-6 py-4">Línea</th>
+                <th class="px-6 py-4 text-right">Por recibir (%)</th>
+                <th class="px-6 py-4 text-right">Monto USD ($)</th>
+                <th class="px-6 py-4 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="cashea-pending-list" class="divide-y divide-gray-50 text-xs font-bold text-gray-700">
+              <!-- Cargado dinámicamente -->
+              <tr>
+                <td colspan="6" class="px-6 py-10 text-center text-gray-400 italic">No hay ventas pendientes por conciliar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="px-6 py-4 bg-gray-50 border-t flex justify-end">
+        <button id="btn-cashea-reconcile-cancel" class="px-6 py-2.5 rounded-xl bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 font-black text-xs uppercase tracking-widest transition-all">Cerrar Ventana</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

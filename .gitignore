@@ -1,0 +1,49 @@
+# ==== Secretos y credenciales (NUNCA commitear) ====
+*.key
+*.pem
+private.key
+*.lic
+.env
+.env.*
+!.env.example
+license-server/licenses.json
+license-server/users.json
+license-server/invites.json
+license-server/activation_tokens.json
+license-server/private.key
+**/activation.key
+**/activation.key.used
+**/licencia.lic
+**/licencia.lic.aplicada
+
+# ==== Bases de datos y datos locales ====
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ==== Dependencias y artefactos de build ====
+node_modules/
+out/
+dist/
+build/
+*.asar
+*.asar.unpacked/
+
+# ==== Salida generada de Tailwind ====
+public/css/output.css
+
+# ==== Logs y temporales ====
+*.log
+startup_error.log
+tmp/
+temp/
+scratch/
+
+# ==== Sistema operativo / editor ====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

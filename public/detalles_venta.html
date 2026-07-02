@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detalles de Venta | BodegApp</title>
+  <link href="/css/output.css" rel="stylesheet">
+  <link href="/css/theme.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+  <script>
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.body.classList.add('dark-mode');
+    }
+  </script>
+  <div class="flex-1 flex flex-col h-screen">
+
+    <main class="flex-1 overflow-y-auto p-4 md:p-8">
+
+      <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
+        <h1 class="text-3xl font-bold text-gray-800">
+          Detalles de Venta <span id="sale-id-title" class="text-blue-600"></span>
+        </h1>
+
+        <div class="flex items-center gap-3">
+          <button id="btn-print-receipt"
+            class="bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Imprimir Recibo
+          </button>
+          <a href="javascript:history.back()" class="text-sm text-blue-600 hover:underline whitespace-nowrap flex items-center gap-1">
+            &larr; Volver
+          </a>
+        </div>
+      </div>
+
+      <div id="loading-message" class="text-center text-gray-500 py-10">
+        Cargando detalles...
+      </div>
+
+      <div id="error-message" class="hidden text-center text-red-500 py-10"></div>
+
+      <div id="sale-details-container" class="hidden">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Columna izquierda: productos + pagos -->
+          <div class="lg:col-span-2 space-y-6">
+
+            <!-- Productos -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+              <h2 class="text-xl font-semibold text-gray-800 mb-4">Productos Vendidos</h2>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                      <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cant.</th>
+                      <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Precio Unit. (Bs)
+                      </th>
+                      <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total (Bs)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="products-table-body" class="bg-white divide-y divide-gray-200">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Historial de pagos/abonos -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+              <h2 class="text-xl font-semibold text-gray-800 mb-4">Historial de Pagos y Abonos</h2>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Método</th>
+                      <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Monto (Bs)</th>
+                      <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Monto ($)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payments-table-body" class="bg-white divide-y divide-gray-200">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Columna derecha: resumen + cliente -->
+          <div class="lg:col-span-1 space-y-6">
+
+            <!-- Resumen -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+              <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de la Venta</h2>
+              <div class="space-y-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Total Venta (Bs):</span>
+                  <span id="summary-total-ves" class="font-semibold text-gray-900"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Total Venta ($):</span>
+                  <span id="summary-total-usd" class="font-semibold text-gray-900"></span>
+                </div>
+                <hr>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Total Pagado (Bs):</span>
+                  <span id="summary-total-pagado" class="font-semibold text-green-600"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Total Pendiente (Bs):</span>
+                  <span id="summary-total-pendiente-ves" class="font-bold text-2xl text-red-600"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Total Pendiente ($):</span>
+                  <span id="summary-total-pendiente-usd" class="font-bold text-lg text-red-600"></span>
+                </div>
+                <hr>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Estado:</span>
+                  <span id="summary-estado" class="font-semibold text-gray-900"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Fecha:</span>
+                  <span id="summary-fecha" class="font-semibold text-gray-900"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cliente -->
+            <div id="client-info-card" class="bg-white p-6 rounded-lg shadow-md hidden">
+              <h2 class="text-xl font-semibold text-gray-800 mb-4">Cliente</h2>
+              <div class="space-y-2">
+                <div>
+                  <span class="text-sm font-medium text-gray-500">Nombre:</span>
+                  <span id="client-nombre" class="block text-gray-900 font-semibold"></span>
+                </div>
+                <div>
+                  <span class="text-sm font-medium text-gray-500">Cédula:</span>
+                  <span id="client-cedula" class="block text-gray-900"></span>
+                </div>
+                <div>
+                  <span class="text-sm font-medium text-gray-500">Teléfono:</span>
+                  <span id="client-telefono" class="block text-gray-900"></span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/detalles_venta.js"></script>
+</body>
+
+</html>

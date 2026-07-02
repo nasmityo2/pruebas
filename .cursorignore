@@ -1,0 +1,12 @@
+node_modules
+dist
+out
+.git
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+package-lock.json
+.DS_Store
+Thumbs.db
