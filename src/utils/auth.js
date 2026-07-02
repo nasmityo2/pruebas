@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const { loadSettings } = require('./settings');
-
-const HASH_SECRET = 'bodegapp-super-secreto-para-passwords-2024!';
+const { HASH_SECRET } = require('../config');
 
 function hashPassword(password) {
     if (!password) return null;

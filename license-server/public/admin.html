@@ -779,9 +779,8 @@
                 const res = await fetch(`${API_BASE}/update/publish`, {
                     method: 'POST',
                     headers: { 
-                        'Authorization': `Bearer ${TOKEN}`, // Although authenticateApiKey is used, the public part might use this or SHARED_API_KEY
-                        'Content-Type': 'application/json',
-                        'x-api-key': 'bodegapp-master-key-2026' // Use the known one for now
+                        'Authorization': `Bearer ${TOKEN}`,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });

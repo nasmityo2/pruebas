@@ -603,7 +603,7 @@ const processSale = (req, res) => {
       printFooter,
       printQr: settings.printQr !== false,
       printLogo: settings.printLogo !== false,
-      printQrContent: settings.printQrContent || 'https://bodegapp.com.ve',
+      printQrContent: settings.printQrContent || '',
       logoPath: settings.logoPath || '',
       businessRIF: settings.businessRIF || '',
       businessAddress: settings.businessAddress || '',
@@ -802,9 +802,10 @@ const getSaleReceipt = async (req, res) => {
     text += '\n' + ' '.repeat(Math.max(0, Math.floor((width - 19) / 2))) + 'DOCUMENTO NO FISCAL\n';
 
     let qrImage = '';
-    if (settings.printQr !== false) {
+    const qrContent = settings.printQrContent || '';
+    if (settings.printQr !== false && qrContent) {
       try {
-        qrImage = await QRCode.toDataURL(settings.printQrContent || 'https://bodegapp.com.ve');
+        qrImage = await QRCode.toDataURL(qrContent);
       } catch (err) {
         console.error('Error generating QR code for HTML receipt:', err);
       }

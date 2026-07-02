@@ -4,8 +4,10 @@ const { loadSettings, saveSettings, getDataBasePath } = require('../src/utils/se
 const fs = require('fs');
 const path = require('path');
 
-// URL del servidor de licencias (Priorizar variables de entorno para desarrollo)
-const BASE_DOMAIN = process.env.LICENSE_SERVER_URL || 'https://bodegapp.com.ve';
+// URL del servidor de licencias. Default: servidor LOCAL (sin dominios externos).
+// Configurable vía LICENSE_SERVER_URL en .env (ver src/config.js).
+const { LICENSE_SERVER_URL } = require('../src/config');
+const BASE_DOMAIN = LICENSE_SERVER_URL;
 const LICENSE_API_URL = `${BASE_DOMAIN}/admin-licencias/api/check-license`;
 const REDEEM_API_URL = `${BASE_DOMAIN}/admin-licencias/api/redeem-token`;
 const pkg = require('../package.json');

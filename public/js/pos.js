@@ -2535,7 +2535,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const logoPath = result.logoPath || appS.logoPath || '';
           const shouldPrintLogo = result.printLogo !== undefined ? result.printLogo : (appS.printLogo !== false);
           const shouldPrintQr = result.printQr !== undefined ? result.printQr : (appS.printQr !== false);
-          const qrContent = result.printQrContent || appS.printQrContent || 'https://bodegapp.com.ve';
+          const qrContent = result.printQrContent || appS.printQrContent || '';
 
           let logoBytes = new Uint8Array(0);
           let qrBytes = new Uint8Array(0);
@@ -2547,7 +2547,7 @@ document.addEventListener('DOMContentLoaded', () => {
               if (lb) logoBytes = lb;
             } catch (e) { console.warn('Logo error:', e); }
           }
-          if (shouldPrintQr) {
+          if (shouldPrintQr && qrContent) {
             // Generar comandos nativos ESC/POS para el QR (GS ( k)
             // Model 2, Size 6, Error Correction L
             const qrText = qrContent;
@@ -3835,7 +3835,7 @@ document.addEventListener('DOMContentLoaded', () => {
           else qrContentContainer.classList.add('hidden');
         }
         if (printQrContentInput) {
-          printQrContentInput.value = settings.printQrContent || 'https://bodegapp.com.ve';
+          printQrContentInput.value = settings.printQrContent || '';
         }
 
         // Listener para cambio en vivo
@@ -3952,7 +3952,7 @@ document.addEventListener('DOMContentLoaded', () => {
         businessPhone: document.querySelector('input[name="business-phone"]') ? document.querySelector('input[name="business-phone"]').value : '',
         printLogo: !!(printLogoCheckbox && printLogoCheckbox.checked),
         printQr: !!(printQrCheckbox && printQrCheckbox.checked),
-        printQrContent: printQrContentInput ? printQrContentInput.value : 'https://bodegapp.com.ve'
+        printQrContent: printQrContentInput ? printQrContentInput.value : ''
       };
 
 

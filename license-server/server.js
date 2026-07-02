@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -7,10 +8,20 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+// --- Fail-fast de configuración: sin fallback inseguro ---
+function requireEnv(name) {
+    const value = process.env[name];
+    if (!value || !value.trim()) {
+        console.error(`[FATAL] Falta la variable de entorno obligatoria: ${name}. Configúrala en license-server/.env (ver .env.example). El servidor NO arrancará sin ella.`);
+        process.exit(1);
+    }
+    return value.trim();
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SECRET_KEY = process.env.SECRET_KEY || 'super-secret-key-change-this-in-env';
-const SHARED_API_KEY = process.env.SHARED_API_KEY || 'bodegapp-master-key-2026';
+const SECRET_KEY = requireEnv('SECRET_KEY');
+const SHARED_API_KEY = requireEnv('SHARED_API_KEY');
 
 const DATA_FILE = path.join(__dirname, 'licenses.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -18,21 +29,18 @@ const INVITES_FILE = path.join(__dirname, 'invites.json');
 const TOKENS_FILE = path.join(__dirname, 'activation_tokens.json');
 const UPDATE_INFO_FILE = path.join(__dirname, 'update-info.json');
 const PRIVATE_KEY_PATH = path.join(__dirname, 'private.key');
+const PUBLIC_KEY_PATH = path.join(__dirname, 'public.key');
 
 const PRIVATE_KEY = fs.existsSync(PRIVATE_KEY_PATH) ? fs.readFileSync(PRIVATE_KEY_PATH, 'utf8') : null;
-const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx9TAfveMDteIb+fk75OF
-fthvws9UEFFk95ViFapr61IkgoQME8TfbotKUle69z202qj7IiN4KVGWPkSb9ERJ
-oIhgG3cnUr1821d8XBaHjUCV5cY9ecwfKR5ZGg4dKdKebzKwETLjgO/Z3Siap0WO
-nV3l66xzFYhRow0DgwhnvwT1MzB6bADf/5+J/7UlwqaYu9F8ALXXp34WMdSGQ1Z6
-dPQ0O4Yf5srvEEeS4NeFl6PJy2X5c4nrA7nVOq+2cZFhUiVtf51UBGEKiBaS4KS8
-XT5NGo1y32lmH8YswmMJjHE7x/6wME6b1VmJ8W9kKnlqX176FPqG2hH/FD7+ED3H
-CQIDAQAB
------END PUBLIC KEY-----`;
-
 if (!PRIVATE_KEY) {
-    console.error("ADVERTENCIA: No se encontró 'private.key'.");
+    console.error("[FATAL] No se encontró 'private.key'. Genérala con: node license-server/generate-keys.js");
+    process.exit(1);
 }
+
+// Llave pública: se lee del archivo public.key generado junto a la privada (fuente única de verdad).
+const PUBLIC_KEY = fs.existsSync(PUBLIC_KEY_PATH)
+    ? fs.readFileSync(PUBLIC_KEY_PATH, 'utf8')
+    : crypto.createPublicKey(PRIVATE_KEY).export({ type: 'spki', format: 'pem' });
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -59,9 +67,23 @@ function saveJson(file, data) {
 function initUsers() {
     const users = readJson(USERS_FILE, []);
     if (users.length === 0) {
-        const hash = bcrypt.hashSync('admin123', 8);
-        users.push({ id: 1, username: 'admin', password: hash, role: 'admin', createdAt: new Date().toISOString() });
+        // No hay usuario por defecto. Se exige crear el admin en el primer arranque
+        // mediante variables de entorno (ADMIN_USERNAME / ADMIN_PASSWORD). Sin ellas, fail-fast.
+        const adminUser = (process.env.ADMIN_USERNAME || '').trim();
+        const adminPass = process.env.ADMIN_PASSWORD || '';
+        if (!adminUser || !adminPass) {
+            console.error('[FATAL] No hay usuarios y faltan ADMIN_USERNAME/ADMIN_PASSWORD para crear el admin inicial.');
+            console.error('        Configúralos en license-server/.env (solo para el primer arranque) y vuelve a iniciar.');
+            process.exit(1);
+        }
+        if (adminPass.length < 10) {
+            console.error('[FATAL] ADMIN_PASSWORD debe tener al menos 10 caracteres.');
+            process.exit(1);
+        }
+        const hash = bcrypt.hashSync(adminPass, 12);
+        users.push({ id: 1, username: adminUser, password: hash, role: 'admin', createdAt: new Date().toISOString() });
         saveJson(USERS_FILE, users);
+        console.log(`[INIT] Usuario admin '${adminUser}' creado. Borra ADMIN_PASSWORD del .env tras el primer arranque.`);
     }
 }
 initUsers();
@@ -162,7 +184,7 @@ apiRouter.post('/register', (req, res) => {
     const users = readJson(USERS_FILE, []);
     if (users.find(u => u.username === username)) return res.status(400).json({ error: 'Usuario existe' });
 
-    users.push({ id: Date.now(), username, password: bcrypt.hashSync(password, 8), role: invite.role, createdAt: new Date().toISOString() });
+    users.push({ id: Date.now(), username, password: bcrypt.hashSync(password, 12), role: invite.role, createdAt: new Date().toISOString() });
     saveJson(USERS_FILE, users);
     delete invites[token];
     saveJson(INVITES_FILE, invites);
@@ -586,7 +608,7 @@ apiRouter.post('/protected/change-password', authenticateToken, (req, res) => {
 
     if (newPassword.length < 6) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
 
-    user.password = bcrypt.hashSync(newPassword, 8);
+    user.password = bcrypt.hashSync(newPassword, 12);
     users[userIndex] = user;
     saveJson(USERS_FILE, users);
 
@@ -628,4 +650,5 @@ app.get(['/', '/admin', '/dashboard', '/admin-licencias', '/admin-licencias/*'],
 
 app.get(['/register', '/admin-licencias/register'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
 
-app.listen(PORT, () => console.log(`Running on ${PORT}`));
+const HOST = (process.env.HOST || '127.0.0.1').trim();
+app.listen(PORT, HOST, () => console.log(`Servidor de licencias escuchando en http://${HOST}:${PORT}`));

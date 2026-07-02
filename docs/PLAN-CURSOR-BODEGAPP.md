@@ -106,23 +106,23 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 ### 1.1 Sacar secretos del repositorio
 
-- [ ]  Eliminar del repo: `license-server/private.key`, `licenses.json`, `users.json`, `invites.json`, `activation_tokens.json` y cualquier `.db`/`.lic`.
-- [ ]  Añadirlos a `.gitignore` y purgarlos del historial de git (git filter-repo/BFG). Documentar el procedimiento.
-- [ ]  Generar un **nuevo par de llaves RSA** (privada solo en el servidor, pública embebida en el cliente). La privada NUNCA se commitea.
-- [ ]  Reemplazar TODOS los secretos hardcodeados por variables de entorno **sin fallback inseguro**:
+- [x]  Eliminar del repo: `license-server/private.key`, `licenses.json`, `users.json`, `invites.json`, `activation_tokens.json` y cualquier `.db`/`.lic`.
+- [x]  Añadirlos a `.gitignore` y purgarlos del historial de git (git filter-repo/BFG). Documentar el procedimiento.
+- [x]  Generar un **nuevo par de llaves RSA** (privada solo en el servidor, pública embebida en el cliente). La privada NUNCA se commitea.
+- [x]  Reemplazar TODOS los secretos hardcodeados por variables de entorno **sin fallback inseguro**:
     - `SECRET_KEY`, `SHARED_API_KEY`, `TRIAL_SECRET_KEY`, `HIST_SECRET`, `HASH_SECRET`, credenciales admin.
-- [ ]  Crear `.env.example` (sin valores reales) documentando cada variable.
-- [ ]  Hacer que el servidor **no arranque** si falta un secreto obligatorio (fail-fast).
+- [x]  Crear `.env.example` (sin valores reales) documentando cada variable.
+- [x]  Hacer que el servidor **no arranque** si falta un secreto obligatorio (fail-fast).
 
 ### 1.2 Quitar servidores/dominios externos
 
-- [ ]  Eliminar/parametrizar todas las URLs hardcodeadas: `bodegapp.com.ve`, `/admin-licencias/api/...`, `/respaldo`, fallback de tasas `bodegapp.com.ve/tasas/`.
-- [ ]  Centralizar endpoints en configuración (`.env` / archivo de config) con default a **servidor local** (`http://localhost:PUERTO`).
-- [ ]  Desconectar cualquier llamada saliente que no sea imprescindible.
+- [x]  Eliminar/parametrizar todas las URLs hardcodeadas: `bodegapp.com.ve`, `/admin-licencias/api/...`, `/respaldo`, fallback de tasas `bodegapp.com.ve/tasas/`.
+- [x]  Centralizar endpoints en configuración (`.env` / archivo de config) con default a **servidor local** (`http://localhost:PUERTO`).
+- [x]  Desconectar cualquier llamada saliente que no sea imprescindible.
 
 ### 1.3 Rotar credenciales admin
 
-- [ ]  Quitar usuario/clave por defecto `admin/admin123`. Forzar creación de admin en el primer arranque del servidor.
+- [x]  Quitar usuario/clave por defecto `admin/admin123`. Forzar creación de admin en el primer arranque del servidor.
 
 **Criterio de aceptación:** no queda ningún secreto ni URL externa en el código; el servidor exige variables de entorno; nuevas llaves generadas; historial de git limpio de secretos.
 

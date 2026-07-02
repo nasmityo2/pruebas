@@ -22,7 +22,7 @@ function toPrintSettings(settings) {
     businessPhone: settings.businessPhone || '',
     printQr: settings.printQr !== false,
     printLogo: settings.printLogo !== false,
-    printQrContent: settings.printQrContent || 'https://bodegapp.com.ve',
+    printQrContent: settings.printQrContent || '',
     logoPath: settings.logoPath || ''
   };
 }
@@ -107,7 +107,7 @@ router.post('/', (req, res) => {
 
       printQrContent: typeof printQrContent === 'string'
         ? printQrContent
-        : (current.printQrContent || 'https://bodegapp.com.ve')
+        : (current.printQrContent || '')
     };
 
     saveSettings(newSettings); // <-- guarda en business-settings.json
