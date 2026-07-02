@@ -365,6 +365,7 @@ async function startFastifyServer() {
   registerExpressRouter('/api/presentations', require('./routes/presentation.routes'));
   registerExpressRouter('/api/payment-methods', require('./routes/paymentMethod.routes'));
   registerExpressRouter('/api/custom-rates', require('./routes/rates.routes'));
+  registerExpressRouter('/api/admin', require('./routes/admin.routes'));
 
   // Remote printing API endpoint
   fastify.post('/api/print/remote', async (request, reply) => {

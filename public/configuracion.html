@@ -599,6 +599,41 @@
               </div>
             </div>
 
+            <!-- USUARIOS Y AUDITORÍA (Fase 4) -->
+            <div
+              class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden h-full md:col-span-2">
+              <div class="flex items-center gap-3 mb-5">
+                <div class="p-2 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 rounded-lg">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z"></path>
+                  </svg>
+                </div>
+                <h2 class="text-lg font-bold text-gray-800 dark:text-white">Usuarios y Auditoría</h2>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Usuarios internos</h3>
+                  <div class="flex gap-2 mb-3">
+                    <input type="text" id="new-user-name" placeholder="Nombre" class="flex-1 input-text text-sm p-2 border rounded-md">
+                    <select id="new-user-role" class="input-text text-sm p-2 border rounded-md">
+                      <option value="cajero">Cajero</option>
+                      <option value="supervisor">Supervisor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button type="button" id="btn-add-user" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-3 rounded-md">Añadir</button>
+                  </div>
+                  <div id="users-list" class="space-y-1 max-h-48 overflow-auto text-sm"></div>
+                  <p id="users-status" class="text-xs h-4 mt-1"></p>
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Registro de auditoría</h3>
+                  <button type="button" id="btn-load-audit" class="mb-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold px-3 py-1.5 rounded-md">Ver últimas acciones</button>
+                  <div id="audit-list" class="space-y-1 max-h-48 overflow-auto text-xs font-mono text-gray-600 dark:text-gray-300"></div>
+                </div>
+              </div>
+            </div>
+
             <!-- MÉTODOS DE PAGO -->
             <div
               class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden h-full md:col-span-1">

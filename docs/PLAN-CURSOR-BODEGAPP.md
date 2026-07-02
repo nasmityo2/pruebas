@@ -200,10 +200,10 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** usuarios internos con roles y registro de quién hizo qué.
 
-- [ ]  Modelo de usuarios internos con roles: **cajero / supervisor / admin**.
-- [ ]  Contraseña admin requerida para: **borrar producto, anular venta, restaurar backup, cambiar licencia, cambiar tasa** (NO para exportar datos).
-- [ ]  Tabla de **auditoría**: usuario, acción, entidad, fecha/hora, detalle.
-- [ ]  Registrar en auditoría todas las acciones sensibles anteriores.
+- [x]  Modelo de usuarios internos con roles: **cajero / supervisor / admin**.
+- [x]  Contraseña admin requerida para: **borrar producto, anular venta, restaurar backup, cambiar licencia, cambiar tasa** (NO para exportar datos).
+- [x]  Tabla de **auditoría**: usuario, acción, entidad, fecha/hora, detalle.
+- [x]  Registrar en auditoría todas las acciones sensibles anteriores.
 
 **Criterio de aceptación:** cada acción sensible pide clave admin (según lista) y queda registrada con autor y fecha.
 

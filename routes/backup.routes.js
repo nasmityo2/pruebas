@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { performCloudBackup, checkCloudStatus } = require('../src/utils/cloudBackup');
+const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
+const { logAction } = require('../src/utils/audit');
 
 /**
  * POST /api/backup/cloud
@@ -149,11 +151,14 @@ router.delete('/cloud/remove-token', async (req, res) => {
  * Body: { token: "jwt_token", filename: "backup_xxx.db" }
  */
 router.post('/cloud/restore', async (req, res) => {
+    if (!ensureUnlocked(req, res)) return; // restaurar respaldo requiere clave admin (si está configurada)
     const { token, filename } = req.body;
 
     if (!token || !filename) {
         return res.status(400).json({ error: 'Token y filename requeridos' });
     }
+
+    logAction({ usuario: operatorFromReq(req), rol: 'admin', accion: 'BACKUP_RESTORE', entidad: 'backup', detalle: { filename }, ip: req.ip });
 
     try {
         const { getDataBasePath } = require('../src/utils/settings');

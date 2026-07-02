@@ -5,6 +5,8 @@ const fastcsv = require('fast-csv');
 const csv = require('csv-parser');
 const xlsx = require('xlsx'); // Importamos librería para Excel
 const { getDataBasePath } = require('../src/utils/settings');
+const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
+const { logAction } = require('../src/utils/audit');
 
 const getRatesStmt = db.prepare(
   "SELECT key, value FROM settings WHERE key IN ('BCV', 'PARALELO', 'COP', 'CALC_METHOD')"
@@ -997,6 +999,7 @@ const updateImage = (req, res) => {
 
 const deleteProduct = (req, res) => {
   try {
+    if (!ensureUnlocked(req, res)) return; // requiere clave admin (si está configurada)
     const product = getProductByIdStmt.get(req.params.id);
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
@@ -1008,6 +1011,11 @@ const deleteProduct = (req, res) => {
     });
     
     deleteTx(req.params.id);
+    logAction({
+      usuario: operatorFromReq(req), rol: 'admin', accion: 'PRODUCT_DELETE',
+      entidad: 'producto', entidadId: req.params.id,
+      detalle: { nombre: product.nombre }, ip: req.ip,
+    });
     res.json({ message: 'Producto y sus presentaciones eliminados (ocultados) con éxito' });
   } catch (error) {
     console.error(`Error deleting product ID ${req.params.id}:`, error);
@@ -1165,6 +1173,7 @@ const getBultoProducts = (req, res) => {
 
 // --- MASS ACTIONS ---
 const deleteProductsMassive = (req, res) => {
+  if (!ensureUnlocked(req, res)) return; // requiere clave admin (si está configurada)
   const { ids } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ success: false, message: 'No se proporcionaron IDs.' });
@@ -1183,6 +1192,10 @@ const deleteProductsMassive = (req, res) => {
 
   try {
     const count = deleteTransaction(ids);
+    logAction({
+      usuario: operatorFromReq(req), rol: 'admin', accion: 'PRODUCT_DELETE_MASS',
+      entidad: 'producto', detalle: { count, ids }, ip: req.ip,
+    });
     res.json({ success: true, message: `${count} productos eliminados correctamente.` });
   } catch (error) {
     console.error('Error en eliminación masiva:', error);

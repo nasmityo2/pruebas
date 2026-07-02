@@ -1,38 +1,53 @@
-const crypto = require('crypto');
+// src/utils/auth.js
+// Contraseña admin local para acciones sensibles. Migrada a bcrypt (Fase 4).
+// Los hashes bcrypt empiezan por "$2". Un hash antiguo (HMAC hex de 64 chars) se
+// considera LEGACY: no valida, y se pide restablecer la contraseña admin.
+const bcrypt = require('bcryptjs');
 const { loadSettings } = require('./settings');
-const { HASH_SECRET } = require('../config');
+
+const BCRYPT_ROUNDS = 12;
+
+function isBcryptHash(hash) {
+    return typeof hash === 'string' && /^\$2[aby]\$/.test(hash);
+}
 
 function hashPassword(password) {
     if (!password) return null;
-    return crypto.createHmac('sha256', HASH_SECRET).update(password).digest('hex');
+    return bcrypt.hashSync(password, BCRYPT_ROUNDS);
 }
 
 function verifyPassword(inputPassword) {
     const settings = loadSettings();
     const storedHash = settings.adminPasswordHash;
 
-    if (!storedHash) {
-        console.log("Verificación omitida: No hay contraseña de administrador configurada.");
-        return true;
-    }
-    
-    if (!inputPassword) {
-        console.log("Verificación fallida: Se requiere contraseña.");
+    // Sin contraseña configurada: no hay gate (se pedirá configurarla).
+    if (!storedHash) return true;
+
+    if (!inputPassword) return false;
+
+    // Hash legacy (HMAC): no es válido bajo bcrypt; forzar restablecimiento.
+    if (!isBcryptHash(storedHash)) {
+        console.warn('[AUTH] Hash de admin en formato antiguo. Debe restablecerse la contraseña admin.');
         return false;
     }
 
-    const inputHash = hashPassword(inputPassword);
-    
-    if (inputHash !== storedHash) {
-        console.log("Verificación fallida: Contraseña incorrecta.");
+    try {
+        return bcrypt.compareSync(inputPassword, storedHash);
+    } catch (e) {
         return false;
     }
+}
 
-    console.log("Verificación exitosa.");
-    return true;
+// ¿El hash almacenado es legacy (requiere que el dueño restablezca la clave)?
+function isLegacyAdminHash() {
+    const settings = loadSettings();
+    const storedHash = settings.adminPasswordHash;
+    return !!storedHash && !isBcryptHash(storedHash);
 }
 
 module.exports = {
     hashPassword,
-    verifyPassword
+    verifyPassword,
+    isLegacyAdminHash,
+    isBcryptHash,
 };

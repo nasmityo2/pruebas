@@ -467,6 +467,91 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // --- USUARIOS INTERNOS + AUDITORÍA (Fase 4) ---
+    const usersList = document.getElementById('users-list');
+    const usersStatus = document.getElementById('users-status');
+    const btnAddUser = document.getElementById('btn-add-user');
+    const auditList = document.getElementById('audit-list');
+    const btnLoadAudit = document.getElementById('btn-load-audit');
+
+    async function ensureAdminUnlock() {
+      // Fuerza verificación admin (si está configurada) para obtener la cookie de desbloqueo.
+      const parentWin = window.parent || window;
+      if (typeof parentWin.askForAdminPassword === 'function') {
+        return await parentWin.askForAdminPassword();
+      }
+      return true;
+    }
+
+    async function renderUsers() {
+      if (!usersList) return;
+      try {
+        const res = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (!data.success) { usersList.innerHTML = '<span class="text-red-500">No disponible</span>'; return; }
+        if (!data.users.length) { usersList.innerHTML = '<span class="text-gray-400">Sin usuarios internos aún.</span>'; return; }
+        usersList.innerHTML = data.users.map(u => `
+          <div class="flex items-center justify-between gap-2 py-1 border-b border-gray-100 dark:border-gray-700">
+            <span>${u.nombre}</span>
+            <span class="flex items-center gap-2">
+              <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">${u.rol}</span>
+              <button data-del-user="${u.id}" class="text-red-500 hover:text-red-700 text-xs">Eliminar</button>
+            </span>
+          </div>`).join('');
+      } catch (e) {
+        usersList.innerHTML = '<span class="text-red-500">Error al cargar usuarios.</span>';
+      }
+    }
+
+    if (btnAddUser) {
+      btnAddUser.addEventListener('click', async () => {
+        const nombre = (document.getElementById('new-user-name').value || '').trim();
+        const rol = document.getElementById('new-user-role').value;
+        if (!nombre) { mostrarMensaje(usersStatus, 'Ingresa un nombre.', 'error'); return; }
+        if (!(await ensureAdminUnlock())) return;
+        try {
+          const res = await fetch('/api/admin/users', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, rol })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'No se pudo crear.');
+          document.getElementById('new-user-name').value = '';
+          mostrarMensaje(usersStatus, 'Usuario añadido.', 'success');
+          renderUsers();
+        } catch (e) { mostrarMensaje(usersStatus, e.message, 'error'); }
+      });
+    }
+
+    if (usersList) {
+      usersList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-del-user]');
+        if (!btn) return;
+        if (!(await ensureAdminUnlock())) return;
+        try {
+          const res = await fetch('/api/admin/users/' + btn.dataset.delUser, { method: 'DELETE' });
+          if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Error'); }
+          renderUsers();
+        } catch (err) { mostrarMensaje(usersStatus, err.message, 'error'); }
+      });
+      renderUsers();
+    }
+
+    if (btnLoadAudit) {
+      btnLoadAudit.addEventListener('click', async () => {
+        if (!(await ensureAdminUnlock())) return;
+        try {
+          const res = await fetch('/api/admin/audit?limit=30');
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error((data && data.error) || 'No disponible');
+          if (!data.rows.length) { auditList.innerHTML = '<span class="text-gray-400">Sin registros.</span>'; return; }
+          auditList.innerHTML = data.rows.map(r =>
+            `<div>[${r.fecha}] <b>${r.accion}</b> ${r.entidad || ''}${r.entidad_id ? '#' + r.entidad_id : ''} — ${r.usuario || 'sistema'}</div>`
+          ).join('');
+        } catch (e) { auditList.innerHTML = '<span class="text-red-500">' + e.message + '</span>'; }
+      });
+    }
+
     // --- CORTAFUEGOS (FIREWALL) ---
     const btnConfigureFirewall = document.getElementById('btn-configure-firewall');
     const firewallStatus = document.getElementById('firewall-status');
