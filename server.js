@@ -4,6 +4,10 @@ const path = require('path');
 const fs = require('fs');
 
 // ----- MOCK EXPRESS IN NODE LOADER -----
+// NECESARIO (revisado en Fase 7): todos los archivos de `routes/*.js` se escriben con la API
+// estilo Express (express.Router().get/post/...). Este shim captura esas rutas para adaptarlas
+// a Fastify (ver adaptController / registerExpressRouter). Eliminarlo obligaría a reescribir
+// todas las rutas; se mantiene intencionalmente.
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
