@@ -34,7 +34,8 @@ const getProductByIdStmt = db.prepare(
 const updateProductStmt = db.prepare(
   'UPDATE productos SET nombre = @nombre, costo = @costo, moneda_costo = @moneda_costo, porcentaje_ganancia = @porcentaje_ganancia, stock = @stock, categoria = @categoria, tipo_venta = @tipo_venta, proveedor = @proveedor, barcode = @barcode, costo_bulto = @costo_bulto, unidades_bulto = @unidades_bulto WHERE id = @id'
 );
-const deleteProductStmt = db.prepare('DELETE FROM productos WHERE id = ?');
+// NOTA (Fase 5): se eliminó `deleteProductStmt` (DELETE FROM productos). El borrado de
+// productos es SIEMPRE soft-delete (columna `activo`) en product.controller.js.
 const getProductByBarcodeStmt = db.prepare('SELECT * FROM productos WHERE barcode = ?');
 const updateBarcodeStmt = db.prepare('UPDATE productos SET barcode = @barcode WHERE id = @id');
 const getBultoProductsStmt = db.prepare(
@@ -376,11 +377,17 @@ const processSaleTransaction = db.transaction(
       productDetails[item.id] = product;
     }
 
+    // Congelar la tasa BCV del momento de la venta (Fase 5): cambios futuros de tasa
+    // NO afectan esta venta. Guardamos la tasa vigente usada en el cálculo.
+    const tasaBcvVenta = (!isNaN(rates.BCV) && rates.BCV > 0)
+      ? Number(rates.BCV)
+      : (totalUsd > 0 ? totalVes / totalUsd : 0);
+
     const ventaInfo = db
       .prepare(
-        'INSERT INTO ventas (total_ves, total_usd_bcv, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, archivado, nota) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO ventas (total_ves, total_usd_bcv, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, archivado, nota, tasa_bcv) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
-      .run(totalVes, totalUsd, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, (estado_pago === 'PAGADO' ? 1 : 0), nota);
+      .run(totalVes, totalUsd, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, (estado_pago === 'PAGADO' ? 1 : 0), nota, tasaBcvVenta);
     const ventaId = ventaInfo.lastInsertRowid;
 
     // Insertar productos y descontar stock
