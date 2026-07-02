@@ -314,11 +314,11 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** empaquetar sin filtrar secretos y mantener soporte Win7/32-bit.
 
-- [ ]  Script de pre-build que **bloquee el empaquetado** si detecta `private.key`, `.env`, `*.lic`, `*.db` o tokens en lo que se va a empaquetar.
-- [ ]  Verificar que el build de electron-forge sigue soportando **Windows 7 y ia32**.
-- [ ]  Documentar el warning de SmartScreen (instalador **sin firma**, ya que no habrá certificado).
-- [ ]  Definir estrategia de **auto-update** (recomendado: canal estable + actualización opcional que puede marcarse como obligatoria para versiones críticas de seguridad), apuntando al futuro VPS.
-- [ ]  Evaluar separar repos: `bodegapp-client`, `bodegapp-license-server`, `bodegapp-backup` (recomendado por seguridad; separa el servidor con la clave privada del código del cliente).
+- [x]  Script de pre-build que **bloquee el empaquetado** si detecta `private.key`, `.env`, `*.lic`, `*.db` o tokens en lo que se va a empaquetar. *(`scripts/check-no-secrets.js` + hooks `prepackage`/`premake` + `prePackage` de Forge. Verificado: pasa limpio y ABORTA con `.key`, `users.json` o clave privada embebida.)*
+- [x]  Verificar que el build de electron-forge sigue soportando **Windows 7 y ia32**. *(Electron 22.3.27; `make:32`/`build:32`; WiX mapea ia32→x86. Documentado en `docs/DISTRIBUCION.md`.)*
+- [x]  Documentar el warning de SmartScreen (instalador **sin firma**, ya que no habrá certificado). *(docs/DISTRIBUCION.md §3.)*
+- [x]  Definir estrategia de **auto-update** (recomendado: canal estable + actualización opcional que puede marcarse como obligatoria para versiones críticas de seguridad), apuntando al futuro VPS. *(docs/DISTRIBUCION.md §4; publicación exige login admin.)*
+- [x]  Evaluar separar repos: `bodegapp-client`, `bodegapp-license-server`, `bodegapp-backup` (recomendado por seguridad; separa el servidor con la clave privada del código del cliente). *(docs/DISTRIBUCION.md §5.)*
 
 **Criterio de aceptación:** el build no incluye secretos; funciona en Win7/32-bit; estrategia de update y repos documentada.
 
