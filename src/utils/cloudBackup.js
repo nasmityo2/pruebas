@@ -15,9 +15,10 @@ const FormData = require('form-data');
 // Helper para reintentos (Útil para omitir pantallas de carga de cPanel Passenger)
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// URL del servidor de respaldo
-// Para desarrollo local, usar: BACKUP_SERVER_URL=http://localhost:4000
-const BACKUP_SERVER_URL = process.env.BACKUP_SERVER_URL || 'https://bodegapp.com.ve/respaldo';
+// URL del servidor de respaldo en la nube.
+// Desactivado por defecto (cadena vacía): sin dependencia forzada de servidor externo.
+// Se puede activar con BACKUP_SERVER_URL en .env (ver Fase 6). Para desarrollo local: http://localhost:4000
+const { BACKUP_SERVER_URL } = require('../config');
 
 /**
  * Crea una copia temporal de la base de datos para el respaldo
@@ -63,6 +64,9 @@ async function createDatabaseCopy() {
  */
 async function uploadBackupToCloud(filePath, token, onProgress) {
     return new Promise((resolve, reject) => {
+        if (!BACKUP_SERVER_URL) {
+            return reject(new Error('Respaldo en la nube desactivado. Configura BACKUP_SERVER_URL para habilitarlo.'));
+        }
         if (!fs.existsSync(filePath)) {
             return reject(new Error('Archivo no encontrado'));
         }
@@ -222,6 +226,9 @@ async function performCloudBackup(token, onProgress) {
  */
 async function checkCloudStatus(token) {
     return new Promise((resolve, reject) => {
+        if (!BACKUP_SERVER_URL) {
+            return reject(new Error('Respaldo en la nube desactivado. Configura BACKUP_SERVER_URL para habilitarlo.'));
+        }
         if (!token) {
             return reject(new Error('Token no proporcionado'));
         }

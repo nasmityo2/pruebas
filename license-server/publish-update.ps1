@@ -6,9 +6,15 @@ param (
     [string]$url = "https://tu-repositorio.com/descargas/BodegApp_Setup.exe",
     [string[]]$changelog = @("Actualización de mantenimiento", "Mejoras de estabilidad"),
     [string]$description = "Una nueva versión de BodegApp está lista para descargar.",
-    [string]$apiKey = "[REMOVED-COMPROMISED-SECRET]",
+    # La API key se lee del entorno (SHARED_API_KEY). Sin fallback hardcodeado.
+    [string]$apiKey = $env:SHARED_API_KEY,
     [string]$serverUrl = "http://localhost:3000" # Cambiar al dominio real en producción
 )
+
+if ([string]::IsNullOrWhiteSpace($apiKey)) {
+    Write-Host "[ERROR] Falta la API key. Define la variable de entorno SHARED_API_KEY o pásala con -apiKey." -ForegroundColor Red
+    exit 1
+}
 
 $body = @{
     version = $version

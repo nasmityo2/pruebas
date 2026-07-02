@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const { loadSettings } = require('./settings');
-
-const HASH_SECRET = '[REMOVED-COMPROMISED-SECRET]';
+const { HASH_SECRET } = require('../config');
 
 function hashPassword(password) {
     if (!password) return null;

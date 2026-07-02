@@ -117,10 +117,14 @@ function updateBCVRate(force = true) {
     return fetchRate()
         .catch(err => {
             console.warn(`Direct scraping failed: ${err.message}. Trying Centralized API fallback...`);
-            // Fallback to Centralized API
+            // Fallback opcional a API centralizada (desactivado por defecto; sin dominio externo hardcodeado).
+            const { RATES_FALLBACK_URL } = require('../config');
+            if (!RATES_FALLBACK_URL) {
+                return Promise.reject(new Error('Fallback de tasas desactivado (RATES_FALLBACK_URL no configurado).'));
+            }
             return new Promise((resolve, reject) => {
-                const API_URL = 'https://bodegapp.com.ve/tasas/';
-                https.get(API_URL, { rejectUnauthorized: false, timeout: 10000 }, (res) => {
+                const API_URL = RATES_FALLBACK_URL;
+                https.get(API_URL, { timeout: 10000 }, (res) => {
                     let data = '';
                     res.on('data', chunk => data += chunk);
                     res.on('end', () => {

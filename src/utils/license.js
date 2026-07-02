@@ -7,17 +7,18 @@ const os = require('os');
 const { loadSettings } = require('./settings');
 const { getDataBasePath } = require('./settings');
 
+// Llave pública NUEVA (rotada en Fase 1). Solo verifica firmas; nunca puede firmar.
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx9TAfveMDteIb+fk75OF
-fthvws9UEFFk95ViFapr61IkgoQME8TfbotKUle69z202qj7IiN4KVGWPkSb9ERJ
-oIhgG3cnUr1821d8XBaHjUCV5cY9ecwfKR5ZGg4dKdKebzKwETLjgO/Z3Siap0WO
-nV3l66xzFYhRow0DgwhnvwT1MzB6bADf/5+J/7UlwqaYu9F8ALXXp34WMdSGQ1Z6
-dPQ0O4Yf5srvEEeS4NeFl6PJy2X5c4nrA7nVOq+2cZFhUiVtf51UBGEKiBaS4KS8
-XT5NGo1y32lmH8YswmMJjHE7x/6wME6b1VmJ8W9kKnlqX176FPqG2hH/FD7+ED3H
-CQIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt8Lk4fcZR2HJaymGwmtB
+tugbL+Qs8UP1lNhDh1SCGBU6BJhlKaX4+WL45aFbAJ20/pGMz9l/kmAMe5/o4svI
+w8oFwnfmx9l/jvy91qBTWJZ8CJsf8ciQDNJQnX+F2o3YgrB0W+OmZhJG5lAE7fvs
+Ykg/pACFpg4XHzVhgNqc19SyuxVgz2DeAFMM/nXihbipZZsEwZI0VmPlWAndAP/v
+8evqNs/cEZ/B1fSIdlNzpuH2yVpXuBjnIVpt6DFE7ekNXe62pUgkLsJJcVBEUIkS
+9+24EiqCERdjr91grmrPY5smGu65NsZ4DlJaC3/9yTz/r1YMgCV5Om+9XVJquye1
+hwIDAQAB
 -----END PUBLIC KEY-----`;
 
-const TRIAL_SECRET_KEY = '[REMOVED-COMPROMISED-SECRET]';
+const { TRIAL_SECRET_KEY, HIST_SECRET } = require('../config');
 const TRIAL_DURATION_HOURS = 72;
 
 // 🧠 Ruta legacy (como estaba antes)
@@ -195,8 +196,6 @@ function getBiosSerial() {
   }
   return serial || 'unknown-serial';
 }
-
-const HIST_SECRET = '[REMOVED-COMPROMISED-SECRET]';
 
 function encryptData(text, keyString) {
   try {

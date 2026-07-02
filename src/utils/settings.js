@@ -45,7 +45,7 @@ const DEFAULT_SETTINGS = {
   // --- NUEVO: MOSTRAR QR O LOGO ---
   printQr: true,
   printLogo: true,
-  printQrContent: "https://bodegapp.com.ve",
+  printQrContent: "",
 
   // --- DATOS DE CONTACTO (Primer Uso) ---
   clientPhone: "",

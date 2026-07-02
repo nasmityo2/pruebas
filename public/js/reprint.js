@@ -352,8 +352,8 @@ async function directPrintSale(saleId, forceDirect = false) {
 
     // 5. QR (Nativo ESC/POS igual que pos.js)
     let qrBytes = new Uint8Array(0);
-    if (settings.printQr !== false) {
-      const qrText = settings.printQrContent || "https://bodegapp.com.ve";
+    const qrText = settings.printQrContent || "";
+    if (settings.printQr !== false && qrText) {
       const qrLen = qrText.length + 3;
       const pL = qrLen & 0xFF;
       const pH = (qrLen >> 8) & 0xFF;
@@ -644,8 +644,8 @@ async function showTicketPreview(saleId) {
         // QR Code
         const qrContainer = document.getElementById('ticket-preview-qr-container');
         const qrCanvas = document.getElementById('qr-canvas');
-        if (settings.printQr !== false && qrContainer && qrCanvas) {
-            const qrText = settings.printQrContent || 'https://bodegapp.com.ve';
+        if (settings.printQr !== false && qrContainer && qrCanvas && (settings.printQrContent || '')) {
+            const qrText = settings.printQrContent || '';
             try {
                 const qrResp = await fetch(`/api/utils/qrcode?text=${encodeURIComponent(qrText)}`);
                 const qrData = await qrResp.json();

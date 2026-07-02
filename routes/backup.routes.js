@@ -162,8 +162,12 @@ router.post('/cloud/restore', async (req, res) => {
         const https = require('https');
         const http = require('http');
 
-        // URL del servidor cloud (Para desarrollo: BACKUP_SERVER_URL=http://localhost:4000)
-        const CLOUD_URL = process.env.BACKUP_SERVER_URL || 'https://bodegapp.com.ve/respaldo';
+        // URL del servidor cloud. Desactivado por defecto; configurable con BACKUP_SERVER_URL.
+        const { BACKUP_SERVER_URL } = require('../src/config');
+        const CLOUD_URL = BACKUP_SERVER_URL;
+        if (!CLOUD_URL) {
+            return res.status(400).json({ error: 'Respaldo en la nube desactivado. Configura BACKUP_SERVER_URL para habilitarlo.' });
+        }
         const downloadUrl = `${CLOUD_URL}/api/backup/download/${encodeURIComponent(filename)}`;
 
         const dbPath = path.join(getDataBasePath(), 'mi-tienda.db');
