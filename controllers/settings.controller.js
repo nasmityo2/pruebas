@@ -4,7 +4,6 @@ const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
 const { logAction } = require('../src/utils/audit');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 const uploadsBasePath = path.join(getDataBasePath(), 'uploads');
 
@@ -208,6 +207,10 @@ const getAdminPasswordStatus = (req, res) => {
 };
 
 const updateAdminPassword = (req, res) => {
+  // Cambiar o BORRAR la clave admin exige desbloqueo admin cuando ya hay una configurada
+  // (evita que un cajero/LAN la sobrescriba o elimine). El primer set no está gateado.
+  if (!ensureUnlocked(req, res)) return;
+
   const { adminPassword } = req.body;
 
   if (adminPassword === undefined) {
@@ -222,8 +225,9 @@ const updateAdminPassword = (req, res) => {
     let enabled = false;
 
     if (trimmed) {
-      const hash = crypto.createHash('sha256').update(trimmed).digest('hex');
-      newSettings.adminPasswordHash = hash;
+      // Mismo algoritmo que verifyPassword: bcrypt (Fase 4). Antes usaba SHA-256 incompatible.
+      const { hashPassword } = require('../src/utils/auth');
+      newSettings.adminPasswordHash = hashPassword(trimmed);
       enabled = true;
     } else {
       if (Object.prototype.hasOwnProperty.call(newSettings, 'adminPasswordHash')) {
@@ -239,6 +243,11 @@ const updateAdminPassword = (req, res) => {
       throw new Error('No se pudo guardar la contraseña de administrador.');
     }
 
+    logAction({
+      usuario: operatorFromReq(req), rol: 'admin',
+      accion: trimmed ? 'ADMIN_PASSWORD_SET' : 'ADMIN_PASSWORD_CLEAR',
+      entidad: 'settings', ip: req.ip,
+    });
     res.json({
       message: trimmed ? 'Contraseña de administrador actualizada.' : 'Contraseña de administrador eliminada.',
       enabled
