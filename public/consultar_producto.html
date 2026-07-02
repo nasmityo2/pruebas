@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta de Productos | BodegApp</title>
+  <link href="/css/output.css" rel="stylesheet">
+  <link href="/css/theme.css" rel="stylesheet">
+  <style>
+    .big-price {
+      font-size: 5rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .big-name {
+      font-size: 2.25rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .product-image {
+      width: 180px;
+      height: 180px;
+      object-fit: contain;
+      border-radius: 1.5rem;
+      background: white;
+      padding: 1rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    body.dark-mode .product-image {
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .hidden-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pulse-animation {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: .5;
+      }
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    }
+
+    body.dark-mode .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 py-8">
+  <script>
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.body.classList.add('dark-mode');
+    }
+  </script>
+
+  <div class="fixed top-0 left-0 w-full p-6 flex items-center justify-between pointer-events-none">
+    <div class="flex items-center gap-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 shadow-xl">
+      <img id="business-logo" src="/images/default-logo.png" alt="Logo" class="h-10 w-auto object-contain">
+      <span id="business-name" class="text-xl font-bold text-gray-800 dark:text-white tracking-tight">BodegApp</span>
+    </div>
+    <div class="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 shadow-lg flex items-center gap-2">
+      <div class="w-2 h-2 bg-green-500 rounded-full pulse-animation"></div>
+      <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">En Línea</span>
+    </div>
+  </div>
+
+  <!-- Hidden input to capture barcode scans -->
+  <input type="text" id="barcode-input" class="hidden-input" autofocus autocomplete="off">
+
+  <div class="max-w-3xl w-full">
+    <div id="content-card" class="glass-card rounded-3xl p-6 text-center transition-all duration-500 transform scale-100">
+      
+      <!-- Initial State -->
+      <div id="state-idle" class="space-y-6">
+        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-2">
+          <svg class="w-12 h-12 pulse-animation" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tight">Escanea un producto</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">Pasa el código de barras por el lector para consultar el precio</p>
+      </div>
+
+      <!-- Result State (Hidden by default) -->
+      <div id="state-result" class="hidden space-y-4">
+        <div id="product-category" class="inline-block px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm font-bold uppercase tracking-wider mb-2">
+          Categoría
+        </div>
+        
+        <div class="flex flex-col items-center justify-center gap-4 py-2">
+            <div id="image-container" class="hidden mb-2">
+                <img id="product-img" src="" alt="Producto" class="product-image border border-gray-100 dark:border-gray-700">
+            </div>
+            <div class="text-center">
+                <h2 id="product-name" class="big-name text-gray-900 dark:text-white">Nombre del Producto</h2>
+                
+                <div class="py-2">
+                    <div id="product-price" class="big-price text-blue-600 dark:text-blue-400">
+                        $0.00
+                    </div>
+                    <div id="product-price-ves" class="text-2xl font-semibold text-gray-500 dark:text-gray-400 mt-1">
+                        Bs 0.00
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-6">
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                <div id="countdown-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-[5000ms] linear" style="width: 100%"></div>
+            </div>
+            <p class="text-sm text-gray-400 uppercase font-bold tracking-widest">Reiniciando en <span id="countdown-text">5</span> segundos</p>
+        </div>
+      </div>
+
+      <!-- Error State (Hidden by default) -->
+      <div id="state-error" class="hidden space-y-6 py-12">
+        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+        </div>
+        <h2 class="text-3xl font-bold text-gray-800 dark:text-white">Producto no encontrado</h2>
+        <p class="text-lg text-gray-500 dark:text-gray-400">El código escaneado no coincide con ningún producto en el sistema.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const barcodeInput = document.getElementById('barcode-input');
+    const idleState = document.getElementById('state-idle');
+    const resultState = document.getElementById('state-result');
+    const errorState = document.getElementById('state-error');
+    const contentCard = document.getElementById('content-card');
+    
+    const productName = document.getElementById('product-name');
+    const productPrice = document.getElementById('product-price');
+    const productPriceVes = document.getElementById('product-price-ves');
+    const productCategory = document.getElementById('product-category');
+    const productImg = document.getElementById('product-img');
+    const imageContainer = document.getElementById('image-container');
+    const countdownBar = document.getElementById('countdown-bar');
+    const countdownText = document.getElementById('countdown-text');
+
+    let resetTimeout;
+    let countdownInterval;
+
+    // Maintain focus on input
+    document.addEventListener('click', () => barcodeInput.focus());
+    document.addEventListener('keydown', () => barcodeInput.focus());
+    barcodeInput.addEventListener('blur', () => setTimeout(() => barcodeInput.focus(), 10));
+
+    // Handle scan
+    barcodeInput.addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter') {
+        const barcode = barcodeInput.value.trim();
+        if (barcode) {
+          await lookupProduct(barcode);
+        }
+        barcodeInput.value = '';
+      }
+    });
+
+    async function lookupProduct(barcode) {
+      clearTimeout(resetTimeout);
+      clearInterval(countdownInterval);
+      
+      try {
+        const response = await fetch(`/api/products/barcode/${encodeURIComponent(barcode)}`);
+        
+        if (!response.ok) {
+           showError();
+           return;
+        }
+
+        const product = await response.json();
+        if (product) {
+          showProduct(product);
+        } else {
+          showError();
+        }
+      } catch (error) {
+        console.error('Error lookup:', error);
+        showError();
+      }
+    }
+
+    function showProduct(product) {
+      // Limpiar caracteres no imprimibles o raros del nombre
+      const cleanName = (product.nombre || '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim();
+      productName.innerText = cleanName;
+      productCategory.innerText = product.categoria || 'General';
+      
+      const priceUsd = parseFloat(product.precio_final_usd_bcv) || 0;
+      const priceVes = parseFloat(product.precio_final_ves) || 0;
+      
+      productPrice.innerText = `$ ${priceUsd.toFixed(2)}`;
+      productPriceVes.innerText = `Bs ${priceVes.toFixed(2)}`;
+
+      if (product.imagen) {
+          productImg.src = `/uploads/${product.imagen}`;
+          imageContainer.classList.remove('hidden');
+      } else {
+          imageContainer.classList.add('hidden');
+      }
+
+      idleState.classList.add('hidden');
+      errorState.classList.add('hidden');
+      resultState.classList.remove('hidden');
+      
+      animateCard();
+      startResetTimer();
+    }
+
+    function showError() {
+      idleState.classList.add('hidden');
+      resultState.classList.add('hidden');
+      errorState.classList.remove('hidden');
+      
+      animateCard();
+      startResetTimer();
+    }
+
+    function animateCard() {
+        contentCard.classList.remove('scale-100');
+        contentCard.classList.add('scale-95');
+        setTimeout(() => {
+            contentCard.classList.remove('scale-95');
+            contentCard.classList.add('scale-100');
+        }, 100);
+    }
+
+    function startResetTimer() {
+      let seconds = 5;
+      countdownText.innerText = seconds;
+      countdownBar.style.transition = 'none';
+      countdownBar.style.width = '100%';
+      
+      setTimeout(() => {
+          countdownBar.style.transition = 'width 5s linear';
+          countdownBar.style.width = '0%';
+      }, 50);
+
+      countdownInterval = setInterval(() => {
+        seconds--;
+        countdownText.innerText = seconds;
+        if (seconds <= 0) clearInterval(countdownInterval);
+      }, 1000);
+
+      resetTimeout = setTimeout(() => {
+        resetUI();
+      }, 5000);
+    }
+
+    function resetUI() {
+      idleState.classList.remove('hidden');
+      resultState.classList.add('hidden');
+      errorState.classList.add('hidden');
+      barcodeInput.value = '';
+      barcodeInput.focus();
+    }
+
+    async function fetchRates() {
+        try {
+            const res = await fetch('/api/config/rates');
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem('lastRates', JSON.stringify(data));
+            }
+        } catch(e) {}
+    }
+    fetchRates();
+
+    async function fetchBusinessInfo() {
+        try {
+            const res = await fetch('/api/settings/business');
+            if (res.ok) {
+                const settings = await res.json();
+                if (settings.businessName) {
+                    document.getElementById('business-name').innerText = settings.businessName;
+                    document.title = `Consulta | ${settings.businessName}`;
+                }
+                if (settings.logoPath) {
+                    document.getElementById('business-logo').src = settings.logoPath;
+                }
+            }
+        } catch(e) {
+            console.error('Error fetching business info:', e);
+        }
+    }
+    fetchBusinessInfo();
+  </script>
+</body>
+</html>

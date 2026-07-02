@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indicadores | BodegApp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="/css/output.css" rel="stylesheet">
+    <link href="/css/theme.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.body.classList.add('dark-mode');
+        }
+    </script>
+
+    <div class="flex-1 flex flex-col h-screen">
+
+        <main class="flex-1 overflow-y-auto p-4 md:p-8">
+            <div class="max-w-7xl mx-auto">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white">
+                        Indicadores mes siguiente
+                    </h1>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Resumen en tiempo real del rendimiento de tu negocio.
+                    </p>
+                </header>
+
+                <div id="dashboard-loading" class="text-center text-gray-500 dark:text-gray-400 py-12">
+                    <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg"
+                        fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <p class="font-medium animate-pulse">Cargando indicadores...</p>
+                </div>
+
+                <div id="dashboard-content" class="hidden space-y-8">
+
+                    <!-- LISTA DE REPOSICIÓN DEL DÍA -->
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+
+                        <!-- Cabecera con botón toggle -->
+                        <div class="flex items-center justify-between p-5 cursor-pointer select-none"
+                            id="restock-toggle-header">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-lg text-indigo-600 dark:text-indigo-300">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-bold text-gray-800 dark:text-white">
+                                        Lista de Reposición (5 días)
+                                    </h3>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Artículos vendidos en los últimos 5 días que necesitan ser repuestos
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="restock-badge"
+                                    class="hidden text-xs font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full">
+                                    0 ítems
+                                </span>
+                                <button id="btn-ver-reposicion"
+                                    class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    <span id="restock-btn-text">Ver artículos</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Panel desplegable -->
+                        <div id="restock-panel" class="hidden border-t border-gray-100 dark:border-gray-700">
+
+                            <!-- Estado de carga -->
+                            <div id="restock-loading"
+                                class="hidden justify-center items-center py-8 gap-3 text-gray-500">
+                                <svg class="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg"
+                                    fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                <span class="text-sm font-medium">Cargando lista...</span>
+                            </div>
+
+                            <!-- Tabla de reposición -->
+                            <div id="restock-table-wrap" class="hidden p-5">
+                                <div class="flex justify-between items-center mb-4">
+                                    <p id="restock-fecha-label" class="text-sm text-gray-500 dark:text-gray-400"></p>
+                                    <div class="flex items-center gap-3">
+                                        <button id="btn-restock-refresh" title="Actualizar lista"
+                                            class="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            Actualizar
+                                        </button>
+                                        <button id="btn-restock-print" title="Imprimir lista de reposición"
+                                            class="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                                        <thead class="bg-gray-50 dark:bg-gray-700">
+                                            <tr>
+                                                <th
+                                                    class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider w-8">
+                                                    #</th>
+                                                <th
+                                                    class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                                    Producto</th>
+                                                <th
+                                                    class="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                                    Cantidad Vendida</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="restock-list-body"
+                                            class="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Mensaje vacío -->
+                                <div id="restock-empty" class="hidden py-10 text-center">
+                                    <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No hay ventas
+                                        registradas en los últimos 5 días todavía.</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <!-- /LISTA DE REPOSICIÓN -->
+
+                    <!-- KPI GRID (Top Metrics) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                        <!-- 1. GANANCIA -->
+                        <div
+                            class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                            <div
+                                class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <svg class="w-20 h-20 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"
+                                        clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <div
+                                    class="p-2 bg-green-50 dark:bg-green-900 rounded-lg text-green-600 dark:text-green-300">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-bold uppercase text-gray-500 dark:text-gray-400">Ganancia
+                                    Estimada</h3>
+                            </div>
+                            <p id="stat-profit-ves" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">0.00
+                                Bs</p>
+                            <div class="mt-1 flex items-center text-sm font-medium text-green-600 dark:text-green-400">
+                                <span id="stat-profit-usd">(0.00 $)</span>
+                                <span class="text-xs text-gray-400 dark:text-gray-500 ml-2 font-normal">Hoy</span>
+                            </div>
+                        </div>
+
+                        <!-- 2. FIADO (Deuda) -->
+                        <div
+                            class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                            <div
+                                class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <svg class="w-20 h-20 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                        clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="p-2 bg-red-50 dark:bg-red-900 rounded-lg text-red-600 dark:text-red-300">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-bold uppercase text-gray-500 dark:text-gray-400">Total Fiado
+                                    (Global)</h3>
+                            </div>
+                            <!-- Valor principal en dólares -->
+                            <p id="stat-total-fiado-usd" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+                                0.00 $</p>
+                            <div class="mt-1 text-sm text-red-600 dark:text-red-400 font-medium">
+                                <span id="stat-total-fiado-ves">0.00 Bs</span>
+                                <span class="text-xs text-gray-400 dark:text-gray-500 ml-1 font-normal">(A Tasa
+                                    BCV)</span>
+                            </div>
+                        </div>
+
+                        <!-- 3. INGRESOS COBRADOS -->
+                        <div
+                            class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                            <div
+                                class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <svg class="w-20 h-20 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path>
+                                    <path fill-rule="evenodd"
+                                        d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"
+                                        clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <div
+                                    class="p-2 bg-blue-50 dark:bg-blue-900 rounded-lg text-blue-600 dark:text-blue-300">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-bold uppercase text-gray-500 dark:text-gray-400">Ingresos
+                                    Cobrados</h3>
+                            </div>
+                            <p id="stat-revenue-ves" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">0.00
+                                Bs</p>
+                            <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Efectivo + Puntos + Divisas (Bs)
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- /KPI GRID -->
+
+                    <!-- DETAILS GRID -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-fr">
+
+                        <!-- TOP 5 PRODUCTS -->
+                        <div
+                            class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z">
+                                    </path>
+                                </svg>
+                                Top 5 Vendidos
+                                <span
+                                    class="text-xs font-normal text-gray-400 ml-auto bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">28
+                                    días</span>
+                            </h3>
+                            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                                <ol id="top-products-list" class="space-y-3">
+                                    <li class="text-sm text-gray-500 animate-pulse">Cargando datos...</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <!-- LOW STOCK -->
+                        <div
+                            class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full border-l-4 border-l-orange-500">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                                    </path>
+                                </svg>
+                                Stock Crítico
+                                <span
+                                    class="text-xs font-normal text-red-100 bg-red-500 px-2 py-1 rounded-full ml-auto">&lt;
+                                    3 unid</span>
+                            </h3>
+                            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                                <ul id="low-stock-list" class="space-y-3 divide-y divide-gray-100 dark:divide-gray-700">
+                                    <li class="text-sm text-gray-500 animate-pulse pt-2">Verificando inventario...</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- INVENTORY VALUE -->
+                        <div
+                            class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                                Valor del Inventario
+                            </h3>
+
+                            <div class="space-y-6">
+                                <!-- Costo -->
+                                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                    <p class="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-1">
+                                        Costo Total (Inversión)</p>
+                                    <p id="stat-inventory-cost-usd"
+                                        class="text-2xl font-bold text-gray-900 dark:text-white">0.00 $</p>
+                                    <p id="stat-inventory-cost-ves"
+                                        class="text-xs text-gray-500 dark:text-gray-400 mt-1">0.00 Bs</p>
+                                </div>
+
+                                <!-- Venta -->
+                                <div
+                                    class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <p class="text-xs font-semibold uppercase text-blue-600 dark:text-blue-300">
+                                            Valor Venta (Proyección)</p>
+                                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                        </svg>
+                                    </div>
+                                    <p id="stat-inventory-sale-usd"
+                                        class="text-2xl font-bold text-blue-700 dark:text-blue-200">0.00 $</p>
+                                    <p id="stat-inventory-sale-ves"
+                                        class="text-xs text-blue-500 dark:text-blue-400 mt-1">0.00 Bs</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- /DETAILS GRID -->
+
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <script src="/js/indicadores.js"></script>
+</body>
+
+</html>
