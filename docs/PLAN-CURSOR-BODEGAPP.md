@@ -298,13 +298,13 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** proteger la lógica crítica contra regresiones.
 
-- [ ]  Configurar framework de tests (Vitest o `node:test`).
-- [ ]  Tests de **licencias**: activación, HWID, revocación, expiración, bloqueo sin licencia.
-- [ ]  Tests de **precios/tasas**: que ventas pasadas no cambian con nueva tasa.
-- [ ]  Tests de **stock y ventas**: descuentos de inventario, anulaciones (soft-delete).
-- [ ]  Tests de **migraciones**: runner idempotente y backup previo.
+- [x]  Configurar framework de tests (Vitest o `node:test`). *(`node:test` + `node:sqlite`, script `npm test`; sin dependencias nuevas.)*
+- [x]  Tests de **licencias**: activación, HWID, revocación, expiración, bloqueo sin licencia. *(Integración contra el servidor real + verificación del token del lado cliente + matriz del gate de bloqueo.)*
+- [x]  Tests de **precios/tasas**: que ventas pasadas no cambian con nueva tasa. *(Backfill de `tasa_bcv` e invariante de inmutabilidad.)*
+- [x]  Tests de **stock y ventas**: descuentos de inventario, anulaciones (soft-delete). *(Descuento de stock + anulación que restaura stock y marca ANULADO sin borrar la venta.)*
+- [x]  Tests de **migraciones**: runner idempotente y backup previo. *(Idempotencia del ALTER + backfill + índices `IF NOT EXISTS`; el backup previo es fail-safe en el runner.)*
 
-**Criterio de aceptación:** suite de tests verde; las áreas críticas tienen cobertura.
+**Criterio de aceptación:** suite de tests verde; las áreas críticas tienen cobertura. **36/36 verdes.**
 
 **Commit sugerido:** `test(fase-9): suite para licencias, tasas, ventas y migraciones`
 
