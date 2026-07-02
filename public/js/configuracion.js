@@ -436,6 +436,37 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // --- ACCESO MÓVIL (LAN) ---
+    const toggleLan = document.getElementById('toggle-lan');
+    const lanStatus = document.getElementById('lan-status');
+    if (toggleLan) {
+      // Estado inicial
+      fetch('/api/utils/lan-status')
+        .then(r => r.json())
+        .then(d => { toggleLan.checked = !!d.lanEnabled; })
+        .catch(() => {});
+
+      toggleLan.addEventListener('change', async () => {
+        const enabled = toggleLan.checked;
+        try {
+          const response = await fetch('/api/utils/lan-enable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'No se pudo cambiar el modo LAN.');
+          mostrarMensaje(lanStatus, data.message || 'Cambio aplicado. Reinicia la app.', 'info');
+          if (typeof window.parent.showToast === 'function') {
+            window.parent.showToast('Modo LAN ' + (enabled ? 'activado' : 'desactivado') + '. Reinicia BodegApp.', 'info');
+          }
+        } catch (error) {
+          toggleLan.checked = !enabled; // revertir
+          mostrarMensaje(lanStatus, error.message || 'Error al cambiar el modo LAN.', 'error');
+        }
+      });
+    }
+
     // --- CORTAFUEGOS (FIREWALL) ---
     const btnConfigureFirewall = document.getElementById('btn-configure-firewall');
     const firewallStatus = document.getElementById('firewall-status');
@@ -446,8 +477,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnConfigureFirewall.disabled = true;
 
         try {
+          const currentPort = window.location.port || '';
           const response = await fetch('/api/utils/configure-firewall', {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ port: currentPort ? parseInt(currentPort, 10) : undefined })
           });
           const data = await response.json();
 

@@ -570,8 +570,18 @@ async function openMobileModal() {
     const response = await fetch('/api/utils/local-ip?port=' + encodeURIComponent(currentPort));
     const data = await response.json();
 
-    if (data.success && Array.isArray(data.urls) && data.urls.length > 0) {
+    if (data.lanEnabled === false) {
+      ipDisplayElement.innerHTML =
+        '<span class="text-amber-600 text-sm">El acceso desde el móvil está <strong>desactivado</strong>. Actívalo en <strong>Configuración → Acceso móvil</strong> (requiere reiniciar la app).</span>';
+      qrCodeLoading.textContent = 'QR no disponible hasta activar el acceso móvil.';
+      qrCodeLoading.classList.remove('hidden');
+      qrCodeImage.classList.add('hidden');
+    } else if (data.success && Array.isArray(data.urls) && data.urls.length > 0) {
       ipDisplayElement.innerHTML = '';
+      const note = document.createElement('p');
+      note.className = 'text-xs text-gray-500 mb-1';
+      note.textContent = 'Enlace temporal (expira). Vuelve a abrir esta ventana si caduca.';
+      ipDisplayElement.appendChild(note);
 
       data.urls.forEach((url) => {
         const strong = document.createElement('strong');

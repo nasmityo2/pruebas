@@ -1,18 +1,30 @@
 @echo off
-:: Check for administrative privileges
+:: BodegApp - Apertura de firewall para acceso LAN (uso OPCIONAL y manual).
+:: No abre nada por defecto: debes pasar el puerto que usa la app.
+:: Uso:  configurar-firewall.bat 53050
+setlocal
+
 net session >nul 2>&1
 if %errorLevel% == 0 (
     echo [INFO] Ejecutando como administrador...
 ) else (
-    echo [ERROR] Por favor, ejecuta este archivo como Administrador.
-    echo Haz clic derecho sobre este archivo y selecciona "Ejecutar como administrador".
+    echo [ERROR] Ejecuta este archivo como Administrador.
+    echo Haz clic derecho y selecciona "Ejecutar como administrador".
     pause
     exit /b
 )
 
-echo [INFO] Configurando reglas de Firewall de Windows para BodegApp...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53050-53060 -Description 'Permite conexion en red local para el sistema POS de BodegApp' -ErrorAction SilentlyContinue"
+set "PORT=%~1"
+if "%PORT%"=="" (
+    echo [ERROR] Debes indicar el puerto. Ejemplo: configurar-firewall.bat 53050
+    echo El puerto exacto aparece en BodegApp ^> Configuracion ^> Acceso movil.
+    pause
+    exit /b
+)
 
-echo [SUCCESS] Reglas de firewall configuradas con exito.
-echo Ya puedes cerrar esta ventana.
+echo [INFO] Abriendo SOLO el puerto %PORT% para BodegApp (perfil de red Privada)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort %PORT% -Profile Private -Description 'Permite conexion en red local para BodegApp' -ErrorAction SilentlyContinue"
+
+echo [SUCCESS] Regla creada para el puerto %PORT%.
+echo Para revertir: elimina la regla 'BodegApp - Servidor POS' en el Firewall de Windows.
 pause
