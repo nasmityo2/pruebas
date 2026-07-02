@@ -243,10 +243,10 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** respaldos locales confiables, sin dependencia de servidor externo por ahora.
 
-- [ ]  Backup **local automático** programable (y manual desde la app).
-- [ ]  Cifrar los backups; **restaurar exige contraseña admin**.
-- [ ]  Quitar la dependencia del backup en la nube externo (`bodegapp.com.ve/respaldo`) hasta tener el VPS; dejarlo como opción configurable y desactivada por defecto.
-- [ ]  Cifrar cualquier token/credencial de nube que hoy se guarde en texto plano.
+- [x]  Backup **local automático** programable (y manual desde la app).
+- [x]  Cifrar los backups; **restaurar exige contraseña admin**.
+- [x]  Quitar la dependencia del backup en la nube externo (`bodegapp.com.ve/respaldo`) hasta tener el VPS; dejarlo como opción configurable y desactivada por defecto.
+- [x]  Cifrar cualquier token/credencial de nube que hoy se guarde en texto plano.
 
 **Criterio de aceptación:** backups locales cifrados; restauración pide clave admin; sin dependencia forzada de servidor externo.
 

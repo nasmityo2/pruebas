@@ -467,6 +467,102 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // --- RESPALDOS LOCALES (Fase 6) ---
+    const btnCreateBackup = document.getElementById('btn-create-backup');
+    const backupList = document.getElementById('backup-list');
+    const backupStatus = document.getElementById('backup-status');
+    const backupAuto = document.getElementById('backup-auto');
+    const backupInterval = document.getElementById('backup-interval');
+    const backupKeep = document.getElementById('backup-keep');
+    const btnSaveBackupCfg = document.getElementById('btn-save-backup-cfg');
+
+    async function ensureAdminUnlockBk() {
+      const parentWin = window.parent || window;
+      if (typeof parentWin.askForAdminPassword === 'function') return await parentWin.askForAdminPassword();
+      return true;
+    }
+
+    function fmtSize(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1024).toFixed(0) + ' KB'; }
+
+    async function renderBackups() {
+      if (!backupList) return;
+      try {
+        const res = await fetch('/api/backup/local/list');
+        const data = await res.json();
+        if (!data.success) { backupList.innerHTML = '<span class="text-red-500">No disponible</span>'; return; }
+        if (backupAuto) backupAuto.checked = data.config.autoEnabled !== false;
+        if (backupInterval) backupInterval.value = data.config.intervalHours || 24;
+        if (backupKeep) backupKeep.value = data.config.keepLast || 10;
+        if (!data.backups.length) { backupList.innerHTML = '<span class="text-gray-400">Aún no hay respaldos.</span>'; return; }
+        backupList.innerHTML = data.backups.map(b => `
+          <div class="flex items-center justify-between gap-2 py-1 border-b border-gray-100 dark:border-gray-700">
+            <span class="font-mono">${new Date(b.mtime).toLocaleString()} <span class="text-gray-400">(${fmtSize(b.size)})</span></span>
+            <button data-restore="${b.file}" class="text-orange-600 hover:text-orange-800 text-xs font-semibold">Restaurar</button>
+          </div>`).join('');
+      } catch (e) {
+        backupList.innerHTML = '<span class="text-red-500">Error al listar respaldos.</span>';
+      }
+    }
+
+    if (btnCreateBackup) {
+      btnCreateBackup.addEventListener('click', async () => {
+        mostrarMensaje(backupStatus, 'Creando respaldo cifrado...', 'info');
+        try {
+          const res = await fetch('/api/backup/local/create', { method: 'POST' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || 'Error');
+          mostrarMensaje(backupStatus, 'Respaldo creado: ' + data.file, 'success');
+          renderBackups();
+        } catch (e) { mostrarMensaje(backupStatus, e.message, 'error'); }
+      });
+    }
+
+    if (btnSaveBackupCfg) {
+      btnSaveBackupCfg.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/backup/local/config', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              autoEnabled: backupAuto.checked,
+              intervalHours: parseInt(backupInterval.value, 10),
+              keepLast: parseInt(backupKeep.value, 10),
+            })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || 'Error');
+          mostrarMensaje(backupStatus, 'Configuración de respaldo guardada.', 'success');
+        } catch (e) { mostrarMensaje(backupStatus, e.message, 'error'); }
+      });
+    }
+
+    if (backupList) {
+      backupList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-restore]');
+        if (!btn) return;
+        const parentWin = window.parent || window;
+        const confirmFn = parentWin.openSystemConfirm || window.confirm;
+        const ok = await (typeof parentWin.openSystemConfirm === 'function'
+          ? parentWin.openSystemConfirm('Restaurar este respaldo reemplazará TODOS los datos actuales y reiniciará la app. ¿Continuar?')
+          : Promise.resolve(window.confirm('Restaurar reemplazará los datos actuales y reiniciará la app. ¿Continuar?')));
+        if (!ok) return;
+        if (!(await ensureAdminUnlockBk())) return;
+        mostrarMensaje(backupStatus, 'Restaurando...', 'info');
+        try {
+          const res = await fetch('/api/backup/local/restore', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: btn.dataset.restore })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || 'Error');
+          mostrarMensaje(backupStatus, 'Restaurado. Reiniciando...', 'success');
+          setTimeout(() => {
+            if (window.api && typeof window.api.invoke === 'function') window.api.invoke('app:restart');
+          }, 1200);
+        } catch (e) { mostrarMensaje(backupStatus, e.message, 'error'); }
+      });
+      renderBackups();
+    }
+
     // --- USUARIOS INTERNOS + AUDITORÍA (Fase 4) ---
     const usersList = document.getElementById('users-list');
     const usersStatus = document.getElementById('users-status');

@@ -3,6 +3,53 @@ const router = express.Router();
 const { performCloudBackup, checkCloudStatus } = require('../src/utils/cloudBackup');
 const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
 const { logAction } = require('../src/utils/audit');
+const localBackup = require('../src/utils/localBackup');
+const { closeDatabase } = require('../src/database');
+
+// ============ RESPALDOS LOCALES CIFRADOS (Fase 6) ============
+
+// Crear respaldo local (no destructivo; no requiere clave admin).
+router.post('/local/create', (req, res) => {
+    try {
+        const info = localBackup.createLocalBackup('manual');
+        localBackup.markBackupDone();
+        logAction({ usuario: operatorFromReq(req), accion: 'BACKUP_CREATE', entidad: 'backup', detalle: { file: info.file }, ip: req.ip });
+        res.json({ success: true, ...info });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.get('/local/list', (req, res) => {
+    try {
+        res.json({ success: true, backups: localBackup.listLocalBackups(), config: localBackup.getBackupConfig() });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/local/config', (req, res) => {
+    try {
+        const cfg = localBackup.setBackupConfig(req.body || {});
+        res.json({ success: true, config: cfg });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Restaurar respaldo local: DESTRUCTIVO -> requiere clave admin. Tras esto, reiniciar la app.
+router.post('/local/restore', (req, res) => {
+    if (!ensureUnlocked(req, res)) return;
+    const { filename } = req.body || {};
+    if (!filename) return res.status(400).json({ success: false, error: 'Falta el nombre del respaldo.' });
+    try {
+        const result = localBackup.restoreLocalBackup(filename, closeDatabase);
+        logAction({ usuario: operatorFromReq(req), rol: 'admin', accion: 'BACKUP_RESTORE_LOCAL', entidad: 'backup', detalle: { filename }, ip: req.ip });
+        res.json({ success: true, ...result, message: 'Respaldo restaurado. La aplicación debe reiniciarse.' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
 
 /**
  * POST /api/backup/cloud
@@ -107,7 +154,8 @@ router.post('/cloud/save-token', async (req, res) => {
             settings = JSON.parse(content);
         }
 
-        settings.cloudBackupToken = token;
+        // Cifrar el token de nube en reposo (no guardar en texto plano).
+        settings.cloudBackupToken = localBackup.encryptSecretAtRest(token);
 
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
 

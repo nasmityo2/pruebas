@@ -599,6 +599,42 @@
               </div>
             </div>
 
+            <!-- RESPALDOS LOCALES (Fase 6) -->
+            <div
+              class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden h-full md:col-span-2">
+              <div class="flex items-center gap-3 mb-5">
+                <div class="p-2 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-lg">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H6a2 2 0 00-2 2z"></path>
+                  </svg>
+                </div>
+                <h2 class="text-lg font-bold text-gray-800 dark:text-white">Respaldos locales (cifrados)</h2>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div class="flex items-center gap-2 mb-3">
+                    <button type="button" id="btn-create-backup" class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded-md">Crear respaldo ahora</button>
+                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 ml-auto">
+                      <input type="checkbox" id="backup-auto" class="h-4 w-4"> Automático
+                    </label>
+                  </div>
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="text-gray-500">Cada</span>
+                    <input type="number" id="backup-interval" min="1" value="24" class="w-20 input-text p-1 border rounded-md text-sm">
+                    <span class="text-gray-500">horas · conservar</span>
+                    <input type="number" id="backup-keep" min="1" value="10" class="w-16 input-text p-1 border rounded-md text-sm">
+                    <button type="button" id="btn-save-backup-cfg" class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold px-2 py-1 rounded-md">Guardar</button>
+                  </div>
+                  <p id="backup-status" class="text-xs h-4 mt-2"></p>
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Respaldos disponibles</h3>
+                  <div id="backup-list" class="space-y-1 max-h-48 overflow-auto text-xs"></div>
+                </div>
+              </div>
+            </div>
+
             <!-- USUARIOS Y AUDITORÍA (Fase 4) -->
             <div
               class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden h-full md:col-span-2">
