@@ -1,811 +1,292 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración de Licencias - BodegApp</title>
-
-    <!-- PWA -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#3b82f6">
-    <link rel="icon" type="image/x-icon" href="img/icon.ico">
-    <link rel="apple-touch-icon" href="img/icon.ico">
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+        .hidden { display: none !important; }
+        .center { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1.75rem; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+        .auth-card { width: 100%; max-width: 380px; }
+        h1, h2, h3 { color: #f8fafc; }
+        label { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; margin: .6rem 0 .25rem; }
+        input, select { width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: .6rem .7rem; border-radius: 8px; font-size: .9rem; }
+        input:focus, select:focus { outline: none; border-color: #3b82f6; }
+        button { cursor: pointer; border: none; border-radius: 8px; font-weight: 600; padding: .6rem 1rem; font-size: .88rem; transition: .15s; }
+        .btn-primary { background: #2563eb; color: #fff; width: 100%; margin-top: 1rem; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-sm { padding: .35rem .6rem; font-size: .75rem; }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-warn { background: #d97706; color: #fff; }
+        .btn-ok { background: #059669; color: #fff; }
+        .btn-ghost { background: #334155; color: #e2e8f0; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; background: #1e293b; border-bottom: 1px solid #334155; }
+        .wrap { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+        .grid { display: grid; gap: 1rem; }
+        @media (min-width: 800px) { .grid-2 { grid-template-columns: 1fr 2fr; } }
+        table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        th, td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid #334155; vertical-align: top; }
+        th { color: #94a3b8; font-size: .7rem; text-transform: uppercase; }
+        .pill { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 700; }
+        .pill.activa { background: #064e3b; color: #6ee7b7; }
+        .pill.pendiente { background: #78350f; color: #fcd34d; }
+        .pill.revocada { background: #7f1d1d; color: #fca5a5; }
+        .key { font-family: ui-monospace, monospace; letter-spacing: .04em; }
+        .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
+        .toolbar > div { flex: 1; min-width: 140px; }
+        .msg { margin-top: .75rem; font-size: .85rem; text-align: center; min-height: 1.2rem; }
+        .msg.error { color: #fca5a5; } .msg.ok { color: #6ee7b7; }
+        .created-list { background: #0f172a; border: 1px dashed #475569; border-radius: 8px; padding: .75rem; margin-top: .75rem; max-height: 180px; overflow: auto; }
+        .actions { display: flex; gap: .3rem; flex-wrap: wrap; }
+        .muted { color: #94a3b8; font-size: .78rem; }
+    </style>
 </head>
 
 <body>
-
-    <!-- LOGIN SCREEN -->
-    <div id="loginScreen" class="auth-container">
+    <!-- LOGIN -->
+    <div id="loginScreen" class="center">
         <div class="card auth-card">
-            <div class="text-center mb-4">
-                <img src="img/icon.ico" alt="Logo" style="width: 64px; height: 64px; margin-bottom: 1rem;">
+            <div style="text-align:center; margin-bottom:1rem;">
                 <h2>BodegApp Admin</h2>
-                <p style="color: var(--text-secondary);">Sistema de Gestión de Licencias</p>
+                <p class="muted">Panel de licencias</p>
             </div>
             <form id="loginForm">
-                <div class="form-group">
-                    <label class="form-label">Usuario</label>
-                    <input type="text" id="loginUser" class="form-control" placeholder="admin" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Contraseña</label>
-                    <input type="password" id="loginPass" class="form-control" placeholder="••••••" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
-                    Iniciar Sesión
-                </button>
+                <label for="username">Usuario</label>
+                <input id="username" type="text" autocomplete="username" required>
+                <label for="password">Contraseña</label>
+                <input id="password" type="password" autocomplete="current-password" required>
+                <button class="btn-primary" type="submit">Ingresar</button>
+                <p id="loginMsg" class="msg error"></p>
             </form>
-            <div id="loginError" class="mt-4 text-center" style="color: var(--danger-color);"></div>
         </div>
     </div>
 
     <!-- DASHBOARD -->
     <div id="dashboard" class="hidden">
-
-        <!-- HEADER -->
-        <header class="app-header">
-            <div class="container flex justify-between items-center">
-                <div class="brand">
-                    <img src="img/icon.ico" alt="BodegApp Logo">
-                    <span>BodegApp</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button class="btn btn-icon" onclick="toggleTheme()" title="Cambiar Tema">
-                        <span class="material-icons-round" id="themeIcon">dark_mode</span>
-                    </button>
-                    <button class="btn btn-sm" onclick="window.location.href='/admin-licencias/pro/'"
-                        title="Ir a BodegApp PRO" style="font-weight:bold; color: #8b5cf6">
-                        PRO
-                    </button>
-                    <button class="btn btn-icon" onclick="openChangePassword()" title="Cambiar Contraseña">
-                        <span class="material-icons-round">lock</span>
-                    </button>
-                    <button onclick="logout()" class="btn btn-icon" title="Cerrar Sesión">
-                        <span class="material-icons-round">logout</span>
-                    </button>
-                </div>
+        <div class="topbar">
+            <h2>Licencias</h2>
+            <div style="display:flex; gap:.5rem; align-items:center;">
+                <span id="whoami" class="muted"></span>
+                <button class="btn-ghost btn-sm" id="btnChangePass">Cambiar clave</button>
+                <button class="btn-ghost btn-sm" id="btnLogout">Salir</button>
             </div>
-        </header>
+        </div>
 
-        <main class="container mt-4">
+        <div class="wrap grid grid-2">
+            <!-- Crear licencia -->
+            <div class="card" style="align-self:start;">
+                <h3>Generar licencia</h3>
+                <form id="createForm">
+                    <label for="plan">Plan</label>
+                    <select id="plan">
+                        <option value="PRO">PRO</option>
+                        <option value="BASICO">BÁSICO</option>
+                        <option value="LIFETIME">DE POR VIDA</option>
+                    </select>
+                    <label for="dias">Días de validez (vacío = sin expiración)</label>
+                    <input id="dias" type="number" min="1" placeholder="Ej: 365">
+                    <label for="cantidad">Cantidad</label>
+                    <input id="cantidad" type="number" min="1" max="100" value="1">
+                    <label for="notas">Notas (cliente)</label>
+                    <input id="notas" type="text" placeholder="Bodega La Esquina">
+                    <button class="btn-primary" type="submit">Generar</button>
+                    <p id="createMsg" class="msg"></p>
+                    <div id="createdList" class="created-list hidden"></div>
+                </form>
+            </div>
 
-            <!-- Toolbar -->
-            <div class="flex flex-col gap-4 mb-4">
-                <div class="flex justify-between items-center">
+            <!-- Listado -->
+            <div class="card">
+                <div class="toolbar">
                     <div>
-                        <h3>Licencias</h3>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Bienvenido, <span id="currentUser">Usuario</span>
-                        </p>
+                        <label>Buscar</label>
+                        <input id="search" type="text" placeholder="clave, equipo, HWID, notas">
                     </div>
-                    <div class="flex gap-2">
-                        <button id="btnInvite" class="btn btn-primary btn-sm hidden" onclick="generateInvite()">
-                            <span class="material-icons-round" style="font-size:1.2rem">person_add</span>
-                            <span class="desktop-only">Invitar</span>
-                        </button>
-                        <button class="btn btn-secondary btn-sm" onclick="loadLicenses()">
-                            <span class="material-icons-round" style="font-size:1.2rem">refresh</span>
-                        </button>
+                    <div style="max-width:180px;">
+                        <label>Estado</label>
+                        <select id="estadoFilter">
+                            <option value="all">Todas</option>
+                            <option value="pendiente">Pendientes</option>
+                            <option value="activa">Activas</option>
+                            <option value="revocada">Revocadas</option>
+                        </select>
                     </div>
+                    <button class="btn-ghost btn-sm" id="btnRefresh">Refrescar</button>
                 </div>
 
-                <!-- Search -->
-                <div class="form-group mb-0" style="position:relative">
-                    <span class="material-icons-round"
-                        style="position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:var(--text-secondary)">search</span>
-                    <input type="text" id="searchInput" class="form-control" style="padding-left: 2.8rem"
-                        placeholder="Buscar por Nombre o HWID..." onkeyup="filterLicenses()">
-                </div>
-            </div>
-
-            <!-- Tabs -->
-            <div class="tabs-scroll-container">
-                <div class="tabs">
-                    <button class="tab active" onclick="setTab('pending')">Pendientes</button>
-                    <button class="tab" onclick="setTab('active')">Activas</button>
-                    <button class="tab" onclick="setTab('hidden')">Ocultas</button>
-                    <button class="tab" onclick="setTab('all')">Todas</button>
-                    <button class="tab" onclick="setTab('updates')">Actualizaciones</button>
-                </div>
-            </div>
-
-            <!-- Content -->
-            <div id="licenseTableContainer" class="table-container">
-                <!-- Injected via JS -->
-            </div>
-
-            <div id="updatesContainer" class="hidden">
-                <div class="card p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3>Gestión de Actualizaciones</h3>
-                        <button class="btn btn-primary btn-sm" onclick="openPublishUpdate()">
-                            <span class="material-icons-round">publish</span>
-                            <span>Publicar Nueva</span>
-                        </button>
+                <table>
+                    <thead>
+                        <tr><th>Clave</th><th>Estado</th><th>Plan</th><th>Equipo / HWID</th><th>Expira</th><th>Acciones</th></tr>
+                    </thead>
+                    <tbody id="licenseRows"><tr><td colspan="6" class="muted">Cargando...</td></tr></tbody>
+                </table>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+                    <span id="pageInfo" class="muted"></span>
+                    <div>
+                        <button class="btn-ghost btn-sm" id="prevPage">Anterior</button>
+                        <button class="btn-ghost btn-sm" id="nextPage">Siguiente</button>
                     </div>
-                    
-                    <div id="currentUpdateInfo" class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p class="text-center" style="color: var(--text-secondary)">Cargando información...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pagination Controls -->
-            <div id="paginationContainer" class="flex justify-between items-center mt-4 mb-8">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                    Mostrando <span id="currentCount">0</span> de <span id="totalCount">0</span> licencias
-                </div>
-                <div class="flex gap-2">
-                    <button id="btnPrev" class="btn btn-secondary btn-sm" onclick="changePage(-1)">
-                        <span class="material-icons-round">chevron_left</span>
-                    </button>
-                    <div id="pageNumbers" class="flex gap-1 items-center" style="font-weight: 600;">
-                        <!-- Page buttons -->
-                    </div>
-                    <button id="btnNext" class="btn btn-secondary btn-sm" onclick="changePage(1)">
-                        <span class="material-icons-round">chevron_right</span>
-                    </button>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- ACTIVATION MODAL -->
-    <div id="activationModal" class="modal-overlay">
-        <div class="modal">
-            <div class="flex justify-between items-center mb-4">
-                <h3>Activar Licencia</h3>
-                <button class="btn btn-icon" onclick="closeModal('activationModal')">
-                    <span class="material-icons-round">close</span>
-                </button>
-            </div>
-
-            <p class="mb-4" style="color: var(--text-secondary);">
-                Cliente: <strong id="modalClientName" style="color: var(--text-primary)"></strong>
-            </p>
-            <input type="hidden" id="modalHwid">
-
-            <div class="form-group">
-                <label class="form-label">Fecha de Expiración</label>
-                <input type="date" id="modalDate" class="form-control" value="2050-12-31">
-            </div>
-
-            <div class="flex justify-between mt-4">
-                <button class="btn btn-secondary" onclick="closeModal('activationModal')">Cancelar</button>
-                <button class="btn btn-primary" onclick="confirmActivation()">Activar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- INVITE MODAL -->
-    <div id="inviteModal" class="modal-overlay">
-        <div class="modal">
-            <div class="flex justify-between items-center mb-4">
-                <h3>Invitación</h3>
-                <button class="btn btn-icon" onclick="closeModal('inviteModal')">
-                    <span class="material-icons-round">close</span>
-                </button>
-            </div>
-
-            <p class="mb-4" style="color: var(--text-secondary);">Comparte este enlace:</p>
-
-            <div class="form-group">
-                <div class="flex gap-2">
-                    <input type="text" id="inviteLink" class="form-control" readonly onclick="this.select()">
-                    <button class="btn btn-primary" onclick="copyInvite()">
-                        <span class="material-icons-round">content_copy</span>
-                    </button>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- CHANGE PASSWORD MODAL -->
-    <div id="passwordModal" class="modal-overlay">
-        <div class="modal">
-            <div class="flex justify-between items-center mb-4">
-                <h3>Cambiar Contraseña</h3>
-                <button class="btn btn-icon" onclick="closeModal('passwordModal')">
-                    <span class="material-icons-round">close</span>
-                </button>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Contraseña Actual</label>
-                <input type="password" id="inputCurrentPass" class="form-control">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Nueva Contraseña</label>
-                <input type="password" id="inputNewPass" class="form-control" placeholder="Mínimo 6 caracteres">
-            </div>
-
-            <div class="flex justify-between mt-4">
-                <button class="btn btn-secondary" onclick="closeModal('passwordModal')">Cancelar</button>
-                <button class="btn btn-primary" onclick="confirmChangePassword()">Guardar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- UPDATE MODAL -->
-    <div id="updateModal" class="modal-overlay">
-        <div class="modal">
-            <div class="flex justify-between items-center mb-4">
-                <h3>Publicar Actualización</h3>
-                <button class="btn btn-icon" onclick="closeModal('updateModal')">
-                    <span class="material-icons-round">close</span>
-                </button>
-            </div>
-
-            <form id="updateForm">
-                <div class="form-group">
-                    <label class="form-label">Versión (ej: 1.1.26.3.23)</label>
-                    <input type="text" id="updateVersion" class="form-control" required placeholder="1.1.26.3.23">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">URL de Descarga (.exe)</label>
-                    <input type="url" id="updateUrl" class="form-control" required placeholder="https://github.com/.../app.exe">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Descripción Breve</label>
-                    <textarea id="updateDesc" class="form-control" rows="2" placeholder="Mejoras de rendimiento..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Changelog (una línea por ítem)</label>
-                    <textarea id="updateChangelog" class="form-control" rows="3" placeholder="Fix login error&#10;Add dark mode"></textarea>
-                </div>
-                <div class="flex items-center gap-2 mb-4">
-                    <input type="checkbox" id="updateMandatory">
-                    <label for="updateMandatory" class="form-label mb-0">Obligatoria</label>
-                </div>
-
-                <div class="flex justify-between mt-4">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('updateModal')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Publicar Señal</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- NOTIFICATION -->
-    <div id="notification" class="notification">Notificación</div>
 
     <script>
-        // Force absolute path based on known deployment
-        const API_BASE = '/admin-licencias/api';
+        const API = '/api';
+        let TOKEN = localStorage.getItem('admin_token') || '';
+        let state = { page: 1, pages: 1, search: '', estado: 'all' };
 
-        // --- PWA Service Worker ---
-        // FORCE RESET: Unregister old workers to fix stale cache
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                let unregCount = 0;
-                for (let registration of registrations) {
-                    registration.unregister();
-                    unregCount++;
+        const $ = (id) => document.getElementById(id);
+
+        async function api(pathname, options = {}) {
+            const res = await fetch(`${API}${pathname}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {}),
+                    ...(options.headers || {})
                 }
-
-                if (unregCount > 0) {
-                    console.log('Old ServiceWorkers cleaned. Registering new one...');
-                }
-
-                navigator.serviceWorker.register('sw.js?v=3')
-                    .then(reg => {
-                        console.log('Service Worker Registered (V3)');
-                        if (reg.waiting) {
-                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        }
-                    });
             });
-        }
-
-        // --- THEME ---
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateThemeIcon(savedTheme);
-        }
-
-        function toggleTheme() {
-            const current = document.documentElement.getAttribute('data-theme');
-            const newTheme = current === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeIcon(newTheme);
-        }
-
-        function updateThemeIcon(theme) {
-            document.getElementById('themeIcon').textContent = theme === 'light' ? 'dark_mode' : 'light_mode';
-        }
-
-        // --- APP STATE ---
-        let TOKEN = localStorage.getItem('token');
-        let USER = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
-        let ALL_LICENSES = [];
-        let CURRENT_TAB = 'pending';
-        let CURRENT_PAGE = 1;
-        let TOTAL_PAGES = 1;
-        let SEARCH_QUERY = '';
-        let SEARCH_TIMEOUT = null;
-
-        function init() {
-            initTheme();
-            if (TOKEN && USER) {
-                showDashboard();
-            } else {
-                showLogin();
+            if (res.status === 401 || res.status === 403) {
+                if (pathname.startsWith('/admin')) { logout(); throw new Error('Sesión expirada'); }
             }
-        }
-
-        function showLogin() {
-            document.getElementById('loginScreen').classList.remove('hidden');
-            document.getElementById('dashboard').classList.add('hidden');
+            const text = await res.text();
+            let data = {};
+            try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { error: 'Respuesta inválida' }; }
+            return { ok: res.ok, status: res.status, data };
         }
 
         function showDashboard() {
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('dashboard').classList.remove('hidden');
-            document.getElementById('currentUser').textContent = USER.username;
-
-            if (USER.role === 'admin') {
-                document.getElementById('btnInvite').classList.remove('hidden');
-            }
+            $('loginScreen').classList.add('hidden');
+            $('dashboard').classList.remove('hidden');
             loadLicenses();
         }
-
+        function showLogin() {
+            $('dashboard').classList.add('hidden');
+            $('loginScreen').classList.remove('hidden');
+        }
         function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            location.reload();
+            TOKEN = '';
+            localStorage.removeItem('admin_token');
+            showLogin();
         }
 
-        function showSessionExpired() {
-            document.getElementById('licenseTableContainer').innerHTML = `
-                <div class="text-center" style="padding: 3rem;">
-                    <span class="material-icons-round" style="font-size: 3rem; color: var(--warning-color); margin-bottom: 1rem;">lock_clock</span>
-                    <h3 style="margin-bottom: 0.5rem;">Sesión expirada</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Tu sesión ha caducado o el servidor se reinició. Inicia sesión nuevamente.</p>
-                    <button class="btn btn-primary" onclick="logout()">Iniciar Sesión</button>
-                </div>`;
-        }
-
-        // --- AUTH ---
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        $('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const u = document.getElementById('loginUser').value;
-            const p = document.getElementById('loginPass').value;
-
-            try {
-                // CHANGED: Use API_BASE
-                const res = await fetch(`${API_BASE}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: u, password: p })
-                });
-                const data = await res.json();
-
-                if (res.ok && data.token) {
-                    TOKEN = data.token;
-                    USER = { username: data.username, role: data.role };
-                    localStorage.setItem('token', TOKEN);
-                    localStorage.setItem('user', JSON.stringify(USER));
-                    showDashboard();
-                } else {
-                    document.getElementById('loginError').textContent = data.error || 'Credenciales incorrectas';
-                }
-            } catch (err) {
-                document.getElementById('loginError').textContent = 'Error de conexión: ' + err.message;
+            $('loginMsg').textContent = '';
+            const { ok, data } = await api('/login', {
+                method: 'POST',
+                body: JSON.stringify({ username: $('username').value, password: $('password').value })
+            });
+            if (ok && data.token) {
+                TOKEN = data.token;
+                localStorage.setItem('admin_token', TOKEN);
+                $('whoami').textContent = data.username;
+                showDashboard();
+            } else {
+                $('loginMsg').textContent = data.error || 'No se pudo iniciar sesión';
             }
         });
 
-        // --- DATA ---
-        async function loadLicenses() {
-            const url = new URL(`${location.origin}${API_BASE}/protected/licenses`);
-            url.searchParams.set('page', CURRENT_PAGE);
-            url.searchParams.set('tab', CURRENT_TAB);
-            url.searchParams.set('search', SEARCH_QUERY);
-            url.searchParams.set('limit', 20);
+        $('btnLogout').addEventListener('click', logout);
 
-            try {
-                const res = await fetch(url.toString(), {
-                    headers: { 'Authorization': `Bearer ${TOKEN}` }
-                });
-
-                if (res.status === 401 || res.status === 403) return showSessionExpired();
-
-                if (!res.ok) {
-                    throw new Error(`Server returned ${res.status} ${res.statusText}`);
-                }
-
-                const data = await res.json();
-                ALL_LICENSES = data.licenses;
-                TOTAL_PAGES = data.pages;
-                CURRENT_PAGE = data.page;
-
-                renderList(ALL_LICENSES);
-                renderPagination(data);
-                showNotify('Datos actualizados');
-            } catch (err) {
-                console.error(err);
-                showNotify('Error: ' + err.message);
-                document.getElementById('licenseTableContainer').innerHTML =
-                    `<div class="text-center" style="color:var(--danger-color); padding:2rem">
-                        <h3>Error cargando datos</h3>
-                        <p>URL: ${url}</p>
-                        <p>Detalle: ${err.message}</p>
-                    </div>`;
-            }
-        }
-
-        function setTab(name) {
-            CURRENT_TAB = name;
-            CURRENT_PAGE = 1; 
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            // Use querySelector because the tab might have was dynamically modified
-            const tabBtn = Array.from(document.querySelectorAll('.tab')).find(btn => btn.innerText.includes(name === 'pending' ? 'Pendientes' : name === 'active' ? 'Activas' : name === 'hidden' ? 'Ocultas' : name === 'all' ? 'Todas' : 'Actualizaciones'));
-            if (tabBtn) tabBtn.classList.add('active');
-
-            if (name === 'updates') {
-                document.getElementById('licenseTableContainer').classList.add('hidden');
-                document.getElementById('paginationContainer').classList.add('hidden');
-                document.getElementById('updatesContainer').classList.remove('hidden');
-                loadUpdateInfo();
-            } else {
-                document.getElementById('updatesContainer').classList.add('hidden');
-                document.getElementById('licenseTableContainer').classList.remove('hidden');
-                document.getElementById('paginationContainer').classList.remove('hidden');
-                loadLicenses();
-            }
-        }
-
-        function filterLicenses() {
-            // Debounced search
-            const query = document.getElementById('searchInput').value.trim();
-            if (SEARCH_TIMEOUT) clearTimeout(SEARCH_TIMEOUT);
-
-            SEARCH_TIMEOUT = setTimeout(() => {
-                SEARCH_QUERY = query;
-                CURRENT_PAGE = 1; // Reset to page 1 on search
-                loadLicenses();
-            }, 400);
-        }
-
-        function changePage(delta) {
-            const next = CURRENT_PAGE + delta;
-            if (next >= 1 && next <= TOTAL_PAGES) {
-                CURRENT_PAGE = next;
-                loadLicenses();
-            }
-        }
-
-        function goToPage(p) {
-            CURRENT_PAGE = p;
-            loadLicenses();
-        }
-
-        function renderPagination(data) {
-            document.getElementById('currentCount').textContent = data.licenses.length;
-            document.getElementById('totalCount').textContent = data.total;
-
-            const btnPrev = document.getElementById('btnPrev');
-            const btnNext = document.getElementById('btnNext');
-            const pageNumbers = document.getElementById('pageNumbers');
-
-            btnPrev.disabled = data.page <= 1;
-            btnNext.disabled = data.page >= data.pages;
-
-            let pagesHtml = '';
-            // Show up to 5 page buttons around current page
-            let startPage = Math.max(1, data.page - 2);
-            let endPage = Math.min(data.pages, startPage + 4);
-            if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
-
-            for (let i = startPage; i <= endPage; i++) {
-                pagesHtml += `
-                    <button class="btn ${i === data.page ? 'btn-primary' : 'btn-secondary'} btn-sm" 
-                            style="min-width: 32px;" 
-                            onclick="goToPage(${i})">${i}</button>
-                `;
-            }
-            pageNumbers.innerHTML = pagesHtml;
-        }
-
-        function renderList(list) {
-            const container = document.getElementById('licenseTableContainer');
-            if (list.length === 0) {
-                container.innerHTML = `<div class="text-center" style="padding: 2rem; color: var(--text-secondary);">No hay resultados</div>`;
-                return;
-            }
-
-            // Generate HTML for card/table hybrid
-            // We use simple divs that are styled as table rows on desktop and cards on mobile via CSS
-
-            let html = `<table>
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Contacto</th>
-                        <th>HWID</th>
-                        <th>Estado</th>
-                        ${USER.role === 'admin' ? '<th>Activado Por</th>' : ''}
-                        <th>Fecha</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-
-            list.forEach(l => {
-                let badge = '<span class="badge badge-warning">Pendiente</span>';
-                if (l.blocked) badge = '<span class="badge badge-danger">Bloqueado</span>';
-                else if (l.active) badge = '<span class="badge badge-success">Activo</span>';
-                else if (l.hidden) badge = '<span class="badge badge-neutral">Oculto</span>';
-
-                const dateStr = new Date(l.requestDate || l.lastCheck).toLocaleDateString();
-
-                html += `
-                <tr>
-                    <td data-label="Cliente">
-                        <div style="font-weight:600">${l.systemName}</div>
-                        ${l.hidden ? '<small style="color:orange">(Oculto)</small>' : ''}
-                    </td>
-                    <td data-label="Contacto">
-                        <div style="font-size:0.9em">${l.clientPhone || '<span style="color:#ccc">Sin Telf</span>'}</div>
-                        <div style="font-size:0.8em; color:var(--text-secondary)">${l.clientEmail || ''}</div>
-                    </td>
-                    <td data-label="HWID"><small style="font-family:monospace">${l.hwid.substring(0, 16)}...</small></td>
-                    <td data-label="Estado">${badge}</td>
-                    ${USER.role === 'admin' ? `<td data-label="Activado Por">
-                        ${(() => {
-                            let act = l.activatedBy;
-                            // Intentar buscar en el historial si no está explícito
-                            if (!act && l.history && Array.isArray(l.history)) {
-                                const h = [...l.history].reverse().find(x => x.changes?.new?.active === true);
-                                if (h) act = h.by;
-                            }
-                            // Si sigue vacío pero está activa, asumir legacy/sistema
-                            if (!act && l.active) act = 'Sistema / Anterior';
-
-                            return act ? `<span style="font-weight:600; color:var(--text-primary)">${act}</span>` : '<span style="color:var(--text-secondary)">-</span>';
-                        })()}
-                    </td>` : ''}
-                    <td data-label="Fecha">${dateStr}</td>
-                        <td data-label="Acciones">
-                        <div class="flex gap-2 justify-end-mobile">
-                            ${!l.active && !l.blocked ?
-                        `<button class="btn btn-sm btn-primary" onclick="openActivation('${l.hwid}', '${l.systemName}')">Activar</button>` : ''}
-                            
-                            ${l.active ?
-                        `<button class="btn btn-sm btn-danger" onclick="toggleActive('${l.hwid}', false)" title="Desactiva la verificación online pero MANTIENE acceso offline si ya tienen licencia válida">Desactivar Online</button>` : ''}
-
-                            ${!l.blocked ?
-                        `<button class="btn btn-sm btn-secondary" onclick="toggleBlock('${l.hwid}', true)" title="REVOCAR TOTALMENTE: Borra la licencia del cliente y prohibe acceso">REVOCAR / Bloquear</button>` : ''}
-                            
-                            ${l.blocked ?
-                        `<button class="btn btn-sm btn-primary" onclick="toggleBlock('${l.hwid}', false)">Desbloquear</button>` : ''}
-
-                            ${(!l.active && !l.blocked) ?
-                        (l.hidden || CURRENT_TAB === 'hidden' ?
-                            `<button class="btn btn-icon" onclick="toggleHide('${l.hwid}', false)" title="Mostrar"><span class="material-icons-round">visibility</span></button>` :
-                            `<button class="btn btn-icon" onclick="toggleHide('${l.hwid}', true)" title="Ocultar"><span class="material-icons-round">visibility_off</span></button>`
-                        ) : ''}
-                            
-                            <button class="btn btn-icon text-danger" onclick="deleteLicense('${l.hwid}')" title="Eliminar Definitivamente" style="color:var(--danger-color)">
-                                <span class="material-icons-round">delete_forever</span>
-                            </button>
-                        </div>
-                    </td>
-                </tr>`;
-            });
-            html += '</tbody></table>';
-            container.innerHTML = html;
-        }
-
-        // --- ACTIONS ---
-        function openActivation(hwid, name) {
-            document.getElementById('modalHwid').value = hwid;
-            document.getElementById('modalClientName').textContent = name;
-            document.getElementById('activationModal').classList.add('active');
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
-        }
-
-        async function confirmActivation() {
-            const hwid = document.getElementById('modalHwid').value;
-            const date = document.getElementById('modalDate').value;
-            await apiAction({ hwid, active: true, expirationDate: date, hidden: false });
-            closeModal('activationModal');
-        }
-
-        async function toggleActive(hwid, val) {
-            if (confirm('¿Confirmar acción?')) await apiAction({ hwid, active: val });
-        }
-        async function toggleBlock(hwid, val) {
-            if (confirm('¿Confirmar bloqueo/desbloqueo?')) await apiAction({ hwid, blocked: val });
-        }
-        async function toggleHide(hwid, val) {
-            await apiAction({ hwid, hidden: val });
-        }
-        async function deleteLicense(hwid) {
-            if (confirm('¿ESTÁ SEGURO? Esto eliminará la licencia y todo su historial permanentemente. Esta acción no se puede deshacer.')) {
-                try {
-                    const res = await fetch(`${API_BASE}/protected/delete`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ hwid })
-                    });
-                    if (res.ok) {
-                        showNotify('Licencia eliminada');
-                        loadLicenses();
-                    } else {
-                        const txt = await res.text();
-                        showNotify('Error: ' + txt);
-                    }
-                } catch (e) { showNotify('Error conexión: ' + e.message); }
-            }
-        }
-
-        async function apiAction(payload) {
-            try {
-                // CHANGED: Use API_BASE
-                const res = await fetch(`${API_BASE}/protected/toggle`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (res.status === 401 || res.status === 403) return showSessionExpired();
-                if (res.ok) {
-                    showNotify('Éxito');
-                    loadLicenses();
-                } else {
-                    const txt = await res.text();
-                    showNotify('Error: ' + txt);
-                }
-            } catch (e) { showNotify('Error conexión: ' + e.message); }
-        }
-
-        async function generateInvite() {
-            try {
-                const res = await fetch(`${API_BASE}/protected/invite`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: 'operator' })
-                });
-                const d = await res.json();
-                if (d.success) {
-                    // Logic to handle relative/absolute link for invite
-                    // Now we know we are at /admin-licencias/ so...
-                    // Ensure location.origin has no slash at end
-                    const link = location.origin + '/admin-licencias/' + d.link;
-
-                    document.getElementById('inviteLink').value = link;
-                    document.getElementById('inviteModal').classList.add('active');
-                }
-            } catch (e) { }
-        }
-
-        function copyInvite() {
-            const el = document.getElementById('inviteLink');
-            el.select();
-            document.execCommand('copy');
-            showNotify('Copiado');
-        }
-
-        function openChangePassword() {
-            document.getElementById('inputCurrentPass').value = '';
-            document.getElementById('inputNewPass').value = '';
-            document.getElementById('passwordModal').classList.add('active');
-        }
-
-        async function confirmChangePassword() {
-            const currentPassword = document.getElementById('inputCurrentPass').value;
-            const newPassword = document.getElementById('inputNewPass').value;
-
-            if (!currentPassword || !newPassword) return showNotify('Complete ambos campos');
-            if (newPassword.length < 6) return showNotify('La contraseña nueva es muy corta');
-
-            try {
-                const res = await fetch(`${API_BASE}/protected/change-password`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currentPassword, newPassword })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showNotify('Contraseña actualizada con éxito');
-                    closeModal('passwordModal');
-                } else {
-                    showNotify(data.error || 'Error al actualizar');
-                }
-            } catch (e) {
-                showNotify('Error: ' + e.message);
-            }
-        }
-
-        // --- UPDATES ---
-        async function loadUpdateInfo() {
-            try {
-                const res = await fetch(`${API_BASE}/update/info`);
-                const info = await res.json();
-                const container = document.getElementById('currentUpdateInfo');
-
-                if (res.ok && info) {
-                    container.innerHTML = `
-                        <div class="flex flex-col gap-2">
-                            <div class="flex justify-between items-center font-bold">
-                                <span>Versión Actual: <span class="badge badge-success">${info.version}</span></span>
-                                <span class="text-secondary" style="font-size:0.8rem">${new Date(info.releaseDate).toLocaleString()}</span>
-                            </div>
-                            <p class="text-sm mt-2"><strong>Descripción:</strong> ${info.description || 'N/A'}</p>
-                            <p class="text-sm"><strong>URL:</strong> <a href="${info.downloadUrl}" target="_blank" class="text-primary">${info.downloadUrl}</a></p>
-                            <div class="mt-2 text-sm">
-                                <strong>Changelog:</strong>
-                                <ul class="list-disc pl-5 mt-1">
-                                    ${info.changelog.map(c => `<li>${c}</li>`).join('')}
-                                </ul>
-                            </div>
-                            ${info.mandatory ? '<div class="badge badge-danger text-center mt-2">Actualización Obligatoria</div>' : ''}
-                        </div>
-                    `;
-                } else {
-                    container.innerHTML = `<p class="text-center text-secondary">No hay información de actualización disponible.</p>`;
-                }
-            } catch (e) {
-                console.error('Error cargando info de actualización:', e);
-            }
-        }
-
-        function openPublishUpdate() {
-            document.getElementById('updateModal').classList.add('active');
-        }
-
-        document.getElementById('updateForm').onsubmit = async (e) => {
+        $('createForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = {
-                version: document.getElementById('updateVersion').value,
-                downloadUrl: document.getElementById('updateUrl').value,
-                description: document.getElementById('updateDesc').value,
-                changelog: document.getElementById('updateChangelog').value.split('\n').filter(x => x.trim()),
-                mandatory: document.getElementById('updateMandatory').checked
+            $('createMsg').textContent = '';
+            $('createMsg').className = 'msg';
+            const body = {
+                plan: $('plan').value,
+                dias: $('dias').value || null,
+                cantidad: parseInt($('cantidad').value || '1', 10),
+                notas: $('notas').value
             };
-
-            try {
-                const res = await fetch(`${API_BASE}/update/publish`, {
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${TOKEN}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    showNotify('Actualización publicada correctamente');
-                    closeModal('updateModal');
-                    loadUpdateInfo();
-                } else {
-                    const data = await res.json();
-                    showNotify('Error: ' + (data.error || 'Fallo al publicar'));
-                }
-            } catch (err) {
-                showNotify('Error de conexión');
+            const { ok, data } = await api('/admin/licenses', { method: 'POST', body: JSON.stringify(body) });
+            if (ok && data.licenses) {
+                $('createMsg').textContent = `${data.licenses.length} licencia(s) generada(s).`;
+                $('createMsg').classList.add('ok');
+                const list = $('createdList');
+                list.classList.remove('hidden');
+                list.innerHTML = data.licenses.map(l => `<div class="key">${l.key}</div>`).join('');
+                loadLicenses();
+            } else {
+                $('createMsg').textContent = data.error || 'Error al generar';
+                $('createMsg').classList.add('error');
             }
-        };
+        });
 
-        function showNotify(msg) {
-            const n = document.getElementById('notification');
-            n.textContent = msg;
-            n.classList.add('show');
-            setTimeout(() => n.classList.remove('show'), 3000);
+        function estadoPill(estado) {
+            const cls = estado === 'activa' ? 'activa' : estado === 'revocada' ? 'revocada' : 'pendiente';
+            return `<span class="pill ${cls}">${estado}</span>`;
         }
 
-        init();
+        function rowActions(l) {
+            const btns = [];
+            if (l.estado !== 'revocada') btns.push(`<button class="btn-danger btn-sm" data-act="revoke" data-key="${l.key}">Revocar</button>`);
+            else btns.push(`<button class="btn-ok btn-sm" data-act="reactivate" data-key="${l.key}">Reactivar</button>`);
+            if (l.hwid) btns.push(`<button class="btn-warn btn-sm" data-act="unbind" data-key="${l.key}">Desvincular</button>`);
+            btns.push(`<button class="btn-ghost btn-sm" data-act="delete" data-key="${l.key}">Eliminar</button>`);
+            return `<div class="actions">${btns.join('')}</div>`;
+        }
+
+        async function loadLicenses() {
+            const params = new URLSearchParams({ page: state.page, limit: 20, search: state.search, estado: state.estado });
+            const { ok, data } = await api(`/admin/licenses?${params.toString()}`);
+            const tbody = $('licenseRows');
+            if (!ok) { tbody.innerHTML = `<tr><td colspan="6" class="muted">${data.error || 'Error'}</td></tr>`; return; }
+            state.pages = data.pages || 1;
+            $('pageInfo').textContent = `Página ${data.page} de ${data.pages} — ${data.total} licencia(s)`;
+            if (!data.licenses.length) { tbody.innerHTML = `<tr><td colspan="6" class="muted">Sin resultados</td></tr>`; return; }
+            tbody.innerHTML = data.licenses.map(l => `
+                <tr>
+                    <td class="key">${l.key}<div class="muted">${l.notas || ''}</div></td>
+                    <td>${estadoPill(l.estado)}</td>
+                    <td>${l.plan || ''}</td>
+                    <td>${l.equipo || '<span class="muted">—</span>'}<div class="muted key" style="font-size:.65rem;">${l.hwid ? l.hwid.substring(0, 24) + '…' : ''}</div></td>
+                    <td>${l.fechaExpiracion ? new Date(l.fechaExpiracion).toLocaleDateString() : '<span class="muted">nunca</span>'}</td>
+                    <td>${rowActions(l)}</td>
+                </tr>`).join('');
+        }
+
+        $('licenseRows').addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-act]');
+            if (!btn) return;
+            const key = btn.dataset.key;
+            const act = btn.dataset.act;
+            const labels = { revoke: 'revocar', reactivate: 'reactivar', unbind: 'desvincular el equipo de', delete: 'ELIMINAR' };
+            if (!confirm(`¿Seguro que deseas ${labels[act]} la licencia ${key}?`)) return;
+
+            let pathname = '/admin/licenses/revoke', method = 'POST';
+            if (act === 'reactivate') pathname = '/admin/licenses/reactivate';
+            else if (act === 'unbind') pathname = '/admin/licenses/unbind';
+            else if (act === 'delete') { pathname = '/admin/licenses'; method = 'DELETE'; }
+
+            const { ok, data } = await api(pathname, { method, body: JSON.stringify({ key }) });
+            if (ok) loadLicenses(); else alert(data.error || 'Error');
+        });
+
+        $('search').addEventListener('input', (e) => { state.search = e.target.value; state.page = 1; loadLicenses(); });
+        $('estadoFilter').addEventListener('change', (e) => { state.estado = e.target.value; state.page = 1; loadLicenses(); });
+        $('btnRefresh').addEventListener('click', loadLicenses);
+        $('prevPage').addEventListener('click', () => { if (state.page > 1) { state.page--; loadLicenses(); } });
+        $('nextPage').addEventListener('click', () => { if (state.page < state.pages) { state.page++; loadLicenses(); } });
+
+        $('btnChangePass').addEventListener('click', async () => {
+            const currentPassword = prompt('Contraseña actual:');
+            if (!currentPassword) return;
+            const newPassword = prompt('Nueva contraseña (mínimo 10 caracteres):');
+            if (!newPassword) return;
+            const { ok, data } = await api('/admin/change-password', {
+                method: 'POST', body: JSON.stringify({ currentPassword, newPassword })
+            });
+            alert(ok ? 'Contraseña actualizada' : (data.error || 'Error'));
+        });
+
+        // Init
+        if (TOKEN) showDashboard(); else showLogin();
     </script>
 </body>
 
