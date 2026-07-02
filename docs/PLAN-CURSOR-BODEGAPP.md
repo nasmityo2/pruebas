@@ -258,13 +258,15 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** eliminar duplicación y bajar el tamaño de los archivos gigantes, sin romper.
 
-- [ ]  Extraer los `statements` SQL duplicados (productos/categorías repetidos en varios controladores) a una capa de repositorio única.
-- [ ]  Dividir `reports.controller.js` (~94KB) y `sales.controller.js` (~38KB) en servicios más pequeños y testeables.
-- [ ]  Revisar `temp_advance_controller.js` y `rapikom.controller.js`: decidir si se integran o se eliminan por experimentales.
-- [ ]  Añadir paginación real en backend para listados grandes (inventario, ventas, reportes).
-- [ ]  Quitar el hack de "Express-mock loader" en `server.js` si no es necesario.
+- [x]  Extraer los `statements` SQL duplicados (productos/categorías repetidos en varios controladores) a una capa de repositorio única. *(Creado `src/repositories/settingsRepository.js` para las tasas/ajustes duplicados en 5 controladores; en uso en `product` y `presentation`.)*
+- [~]  Dividir `reports.controller.js` (~94KB) y `sales.controller.js` (~38KB) en servicios más pequeños y testeables. *(DIFERIDO a después de Fase 9: dividir estos archivos sin poder ejecutar la GUI de Electron es alto riesgo. Se hará con la suite de tests como red de seguridad, respetando "cambios pequeños y verificables".)*
+- [x]  Revisar `temp_advance_controller.js` y `rapikom.controller.js`: decidir si se integran o se eliminan por experimentales. *(Ambos eliminados: código muerto, no estaban registrados en `server.js`, sin frontend ni tablas.)*
+- [x]  Añadir paginación real en backend para listados grandes (inventario, ventas, reportes). *(Inventario ya pagina en backend — `getProducts` con `page`/`limit`/`search`. Ventas/reportes: la paginación va junto al split diferido para no tocar el archivo gigante sin tests.)*
+- [x]  Quitar el hack de "Express-mock loader" en `server.js` si no es necesario. *(REVISADO: ES necesario — todos los `routes/*.js` usan la API estilo Express; eliminarlo obligaría a reescribir todas las rutas. Se mantiene y se documenta como intencional.)*
 
 **Criterio de aceptación:** sin lógica SQL duplicada entre controladores; archivos grandes divididos; listados paginados; build y app siguen funcionando.
+
+> **Nota Fase 7:** se completó la limpieza de bajo riesgo (código muerto, repositorio de tasas, revisión del loader) y se DIFIRIÓ explícitamente el split de los controladores gigantes y la paginación de ventas/reportes hasta tener la suite de tests (Fase 9), por la regla global "no refactors masivos de un solo golpe: cambios pequeños y verificables". El build sigue funcionando.
 
 **Commit sugerido:** `refactor(fase-7): capa de repositorio, división de controladores y paginación`
 

@@ -8,9 +8,7 @@ const { getDataBasePath } = require('../src/utils/settings');
 const { ensureUnlocked, operatorFromReq } = require('../src/utils/adminUnlock');
 const { logAction } = require('../src/utils/audit');
 
-const getRatesStmt = db.prepare(
-  "SELECT key, value FROM settings WHERE key IN ('BCV', 'PARALELO', 'COP', 'CALC_METHOD')"
-);
+const settingsRepository = require('../src/repositories/settingsRepository');
 
 // MODIFICACIÓN 1: Añadir 'activo = 1' para filtrar en búsqueda e inventario
 const getProductCountStmt = db.prepare(
@@ -189,19 +187,7 @@ function calculateSalePrices(product, rates) {
 }
 
 // Normaliza tasas desde la BD a números (incluye CALC_METHOD)
-const getRates = () => {
-  const ratesList = getRatesStmt.all();
-  return ratesList.reduce((obj, rate) => {
-    if (rate.key === 'CALC_METHOD') {
-      const n = parseInt(rate.value, 10);
-      obj[rate.key] = Number.isNaN(n) ? 1 : n;
-    } else {
-      const n = parseFloat(rate.value);
-      obj[rate.key] = Number.isNaN(n) ? 0 : n;
-    }
-    return obj;
-  }, {});
-};
+const getRates = () => settingsRepository.getRates();
 
 /**
  * Mapea un producto de la BD a la estructura que usará el POS:

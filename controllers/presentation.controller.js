@@ -1,10 +1,7 @@
 const { db } = require('../src/database');
+const settingsRepository = require('../src/repositories/settingsRepository');
 
 // ====== STATEMENTS ======
-const getRatesStmt = db.prepare(
-  "SELECT key, value FROM settings WHERE key IN ('BCV', 'PARALELO', 'COP')"
-);
-
 // Ahora incluimos también precio_usd_bcv en todos los SELECT
 const getPresentationsByProductStmt = db.prepare(`
   SELECT id, producto_id, nombre, unidades_base, precio_ves, precio_usd_bcv, moneda, precio, barcode, activo
@@ -83,11 +80,7 @@ const getProductMinimalStmt = db.prepare(`
 
 // ====== HELPERS ======
 function getRates() {
-  const rows = getRatesStmt.all();
-  return rows.reduce((acc, row) => {
-    acc[row.key] = parseFloat(row.value);
-    return acc;
-  }, {});
+  return settingsRepository.getRates();
 }
 
 /**
