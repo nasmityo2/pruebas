@@ -14,6 +14,7 @@
     "license": "node generate_offline_license.js",
     "build:32": "npm run build:css:prod && npm run make:32",
     "dev": "nodemon server.js",
+    "test": "node --experimental-sqlite --test",
     "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch",
     "build:css:prod": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --minify"
   },

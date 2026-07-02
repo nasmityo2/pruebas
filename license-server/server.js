@@ -23,13 +23,17 @@ const PORT = process.env.PORT || 3000;
 const HOST = (process.env.HOST || '127.0.0.1').trim();
 const SECRET_KEY = requireEnv('SECRET_KEY');
 
-const DATA_FILE = path.join(__dirname, 'licenses.json');
-const USERS_FILE = path.join(__dirname, 'users.json');
-const TRIALS_FILE = path.join(__dirname, 'trials.json');
-const UPDATE_INFO_FILE = path.join(__dirname, 'update-info.json');
-const ACCESS_LOG_FILE = path.join(__dirname, 'access.log');
-const PRIVATE_KEY_PATH = path.join(__dirname, 'private.key');
-const PUBLIC_KEY_PATH = path.join(__dirname, 'public.key');
+// DATA_DIR permite aislar los datos (útil para tests). Por defecto, la carpeta del servidor.
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __dirname;
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const DATA_FILE = path.join(DATA_DIR, 'licenses.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const TRIALS_FILE = path.join(DATA_DIR, 'trials.json');
+const UPDATE_INFO_FILE = path.join(DATA_DIR, 'update-info.json');
+const ACCESS_LOG_FILE = path.join(DATA_DIR, 'access.log');
+// Las llaves se buscan primero en DATA_DIR y, si no, en la carpeta del servidor.
+const PRIVATE_KEY_PATH = fs.existsSync(path.join(DATA_DIR, 'private.key')) ? path.join(DATA_DIR, 'private.key') : path.join(__dirname, 'private.key');
+const PUBLIC_KEY_PATH = fs.existsSync(path.join(DATA_DIR, 'public.key')) ? path.join(DATA_DIR, 'public.key') : path.join(__dirname, 'public.key');
 
 const PRIVATE_KEY = fs.existsSync(PRIVATE_KEY_PATH) ? fs.readFileSync(PRIVATE_KEY_PATH, 'utf8') : null;
 if (!PRIVATE_KEY) {
