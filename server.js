@@ -204,10 +204,59 @@ async function parseMultipartUpload(request, reply) {
   }
 }
 
+// ----- GATE DE LICENCIA (bloqueo total del lado servidor) -----
+// Sin licencia/trial válido, solo se permite la pantalla de activación, sus assets
+// y la API de licencia. Todo lo demás (módulos y APIs de negocio) se bloquea.
+// Esto hace inútil saltarse el JS del cliente: la verdad la impone el servidor local.
+const { getAppStatus } = require('./src/utils/license');
+
+const ALLOWED_PREFIXES_WHEN_UNLICENSED = ['/css/', '/js/', '/images/', '/uploads/', '/fonts/', '/api/license'];
+const ALLOWED_EXACT_WHEN_UNLICENSED = new Set(['/activacion.html', '/favicon.ico', '/images/favicon.ico']);
+
+function isAllowedWhenUnlicensed(pathname) {
+  if (ALLOWED_EXACT_WHEN_UNLICENSED.has(pathname)) return true;
+  return ALLOWED_PREFIXES_WHEN_UNLICENSED.some(p => pathname.startsWith(p));
+}
+
+let _licenseCache = { value: false, at: 0 };
+const LICENSE_CACHE_TTL_MS = 5000;
+function isLicensedNow() {
+  const now = Date.now();
+  if (now - _licenseCache.at < LICENSE_CACHE_TTL_MS) return _licenseCache.value;
+  let value = false;
+  try {
+    const s = getAppStatus().status;
+    value = (s === 'LICENSED' || s === 'TRIAL');
+  } catch (e) {
+    console.error('[LICENSE-GATE] Error evaluando estado de licencia:', e.message);
+    value = false; // fail-closed: sin estado válido, se bloquea (la activación sigue accesible)
+  }
+  _licenseCache = { value, at: now };
+  return value;
+}
+// Invalida la caché tras activar/iniciar prueba para reflejar el cambio de inmediato.
+function invalidateLicenseCache() { _licenseCache = { value: false, at: 0 }; }
+global.__invalidateLicenseGate = invalidateLicenseCache;
+
 async function startFastifyServer() {
   // Register CORS
   const cors = require('@fastify/cors');
   await fastify.register(cors, { origin: true });
+
+  // Gate de licencia: se ejecuta antes de servir cualquier ruta/archivo estático.
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (isLicensedNow()) return;
+    const pathname = (request.raw.url || '/').split('?')[0];
+    if (isAllowedWhenUnlicensed(pathname)) return;
+
+    if (pathname.startsWith('/api/')) {
+      reply.code(403).send({ error: 'Licencia requerida', licenseRequired: true });
+      return reply;
+    }
+    // Cualquier página de módulo o el shell principal => redirigir a la activación.
+    reply.redirect('/activacion.html');
+    return reply;
+  });
 
   // Register Multipart
   const multipart = require('@fastify/multipart');

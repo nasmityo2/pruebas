@@ -10,7 +10,10 @@ license-server/licenses.json
 license-server/users.json
 license-server/invites.json
 license-server/activation_tokens.json
+license-server/trials.json
+license-server/access.log
 license-server/private.key
+license-server/public.key
 **/activation.key
 **/activation.key.used
 **/licencia.lic

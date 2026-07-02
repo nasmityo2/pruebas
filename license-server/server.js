@@ -20,14 +20,14 @@ function requireEnv(name) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = (process.env.HOST || '127.0.0.1').trim();
 const SECRET_KEY = requireEnv('SECRET_KEY');
-const SHARED_API_KEY = requireEnv('SHARED_API_KEY');
 
 const DATA_FILE = path.join(__dirname, 'licenses.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
-const INVITES_FILE = path.join(__dirname, 'invites.json');
-const TOKENS_FILE = path.join(__dirname, 'activation_tokens.json');
+const TRIALS_FILE = path.join(__dirname, 'trials.json');
 const UPDATE_INFO_FILE = path.join(__dirname, 'update-info.json');
+const ACCESS_LOG_FILE = path.join(__dirname, 'access.log');
 const PRIVATE_KEY_PATH = path.join(__dirname, 'private.key');
 const PUBLIC_KEY_PATH = path.join(__dirname, 'public.key');
 
@@ -36,39 +36,46 @@ if (!PRIVATE_KEY) {
     console.error("[FATAL] No se encontró 'private.key'. Genérala con: node license-server/generate-keys.js");
     process.exit(1);
 }
-
-// Llave pública: se lee del archivo public.key generado junto a la privada (fuente única de verdad).
 const PUBLIC_KEY = fs.existsSync(PUBLIC_KEY_PATH)
     ? fs.readFileSync(PUBLIC_KEY_PATH, 'utf8')
     : crypto.createPublicKey(PRIVATE_KEY).export({ type: 'spki', format: 'pem' });
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static('public'));
-app.use('/admin-licencias', express.static('public'));
+// Ventana de gracia offline del token (días). Tras vencer el token, el cliente exige re-verificación online.
+const TOKEN_GRACE_DAYS = parseInt(process.env.TOKEN_GRACE_DAYS || '7', 10);
+const TRIAL_DURATION_HOURS = parseInt(process.env.TRIAL_DURATION_HOURS || '72', 10);
 
-app.use((req, res, next) => {
-    console.log(`[REQUEST] ${req.method} ${req.url}`);
-    next();
-});
-
+// ------------------------------------------------------------------
+// Almacenamiento JSON
+// ------------------------------------------------------------------
 function readJson(file, defaultData) {
     if (!fs.existsSync(file)) {
         fs.writeFileSync(file, JSON.stringify(defaultData, null, 2));
-        return defaultData;
+        return JSON.parse(JSON.stringify(defaultData));
     }
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    try {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (e) {
+        console.error(`[WARN] ${path.basename(file)} corrupto, se reinicia con valores por defecto.`);
+        return JSON.parse(JSON.stringify(defaultData));
+    }
 }
-
 function saveJson(file, data) {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
+function logAccess(event, detail) {
+    try {
+        const line = `[${new Date().toISOString()}] ${event} ${JSON.stringify(detail)}\n`;
+        fs.appendFileSync(ACCESS_LOG_FILE, line);
+    } catch (_) { /* noop */ }
+}
+
+// ------------------------------------------------------------------
+// Admin inicial (fail-fast, sin admin/admin123 por defecto)
+// ------------------------------------------------------------------
 function initUsers() {
     const users = readJson(USERS_FILE, []);
     if (users.length === 0) {
-        // No hay usuario por defecto. Se exige crear el admin en el primer arranque
-        // mediante variables de entorno (ADMIN_USERNAME / ADMIN_PASSWORD). Sin ellas, fail-fast.
         const adminUser = (process.env.ADMIN_USERNAME || '').trim();
         const adminPass = process.env.ADMIN_PASSWORD || '';
         if (!adminUser || !adminPass) {
@@ -88,53 +95,77 @@ function initUsers() {
 }
 initUsers();
 
-// --- CRIPTO HELPERS ---
-
-function signLicense(data) {
-    if (!PRIVATE_KEY) throw new Error("Private key missing");
-    const sign = crypto.createSign('SHA256');
-    sign.update(JSON.stringify(data));
-    sign.end();
-    return sign.sign(PRIVATE_KEY, 'base64');
+// ------------------------------------------------------------------
+// Firma de tokens de licencia (la verdad vive aquí; la privada nunca sale)
+// ------------------------------------------------------------------
+function b64url(buf) {
+    return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function signToken(payload) {
+    const body = b64url(JSON.stringify(payload));
+    const signature = crypto.sign('RSA-SHA256', Buffer.from(body), PRIVATE_KEY);
+    return `${body}.${b64url(signature)}`;
+}
+function issueLicenseToken(license) {
+    const now = Math.floor(Date.now() / 1000);
+    const hardExp = license.fechaExpiracion ? Math.floor(new Date(license.fechaExpiracion).getTime() / 1000) : null;
+    let exp = now + TOKEN_GRACE_DAYS * 24 * 3600;
+    if (hardExp && hardExp < exp) exp = hardExp; // nunca exceder la expiración real
+    return signToken({
+        v: 1, typ: 'license', key: license.key, hwid: license.hwid,
+        plan: license.plan || 'PRO', iat: now, exp,
+    });
+}
+function issueTrialToken(hwid, expEpoch) {
+    const now = Math.floor(Date.now() / 1000);
+    return signToken({ v: 1, typ: 'trial', hwid, plan: 'TRIAL', iat: now, exp: expEpoch });
 }
 
-function verifyLicense(licenseKey, hwid = null) {
-    try {
-        if (!licenseKey) return false;
-        const parts = licenseKey.split('.');
-        if (parts.length !== 2) return false;
-
-        const [payloadBase64, signatureBase64] = parts;
-        const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
-        const payload = JSON.parse(payloadJson);
-
-        // Validar integridad LOGICA de la firma (¿Fue creada por mí?)
-        // Usamos RSA-SHA256 explícitamente y SHA256 como fallback
-        const verifier = crypto.createVerify('RSA-SHA256');
-        verifier.update(JSON.stringify(payload));
-        const isValid = verifier.verify(PUBLIC_KEY, Buffer.from(signatureBase64, 'base64'));
-
-        if (!isValid) return false;
-
-        // Si se nos dio un HWID para comparar, lo verificamos.
-        // Si hwid es null, confiamos en la firma y devolvemos el payload (usado para auto-registro).
-        if (hwid && payload.hwid !== hwid) return false;
-
-        return payload;
-    } catch (e) {
-        console.error('Verify error:', e.message);
-        return false;
+// ------------------------------------------------------------------
+// Generación de claves de licencia (solo el dueño, vía panel)
+// ------------------------------------------------------------------
+const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Crockford-ish, sin caracteres ambiguos
+function generateLicenseKey() {
+    const groups = [];
+    for (let g = 0; g < 4; g++) {
+        let s = '';
+        const bytes = crypto.randomBytes(5);
+        for (let i = 0; i < 5; i++) s += KEY_ALPHABET[bytes[i] % KEY_ALPHABET.length];
+        groups.push(s);
     }
+    return 'BGA-' + groups.join('-');
 }
 
-function generateLicenseString(hwid, expirationDate, systemName) {
-    // IMPORTANTE: Client espera 'exp', no 'expiration'. Mantener compatibilidad.
-    const licenseData = { hwid: hwid, exp: expirationDate, client: systemName, type: 'PRO' };
-    const signature = signLicense(licenseData);
-    return Buffer.from(JSON.stringify(licenseData)).toString('base64') + '.' + signature;
-}
+// ------------------------------------------------------------------
+// Middleware
+// ------------------------------------------------------------------
+const corsOrigin = process.env.PANEL_ORIGIN || true;
+app.use(cors({ origin: corsOrigin }));
+app.use(bodyParser.json());
+app.use(express.static('public'));
+app.use('/admin-licencias', express.static('public'));
 
-// --- AUTH ---
+// Rate limiting simple en memoria para endpoints públicos sensibles
+const rateBuckets = new Map();
+function rateLimit({ windowMs, max }) {
+    return (req, res, next) => {
+        const ip = req.ip || req.connection.remoteAddress || 'unknown';
+        const keyId = `${req.path}:${ip}`;
+        const now = Date.now();
+        let entry = rateBuckets.get(keyId);
+        if (!entry || now - entry.start > windowMs) {
+            entry = { start: now, count: 0 };
+        }
+        entry.count += 1;
+        rateBuckets.set(keyId, entry);
+        if (entry.count > max) {
+            logAccess('RATE_LIMIT', { ip, path: req.path });
+            return res.status(429).json({ ok: false, error: 'Demasiadas solicitudes. Intenta más tarde.' });
+        }
+        next();
+    };
+}
+const activationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -146,497 +177,277 @@ function authenticateToken(req, res, next) {
         next();
     });
 }
+function requireAdmin(req, res, next) {
+    if (!req.user || req.user.role !== 'admin') return res.status(403).json({ error: 'Solo administrador' });
+    next();
+}
 
-
-
-const authenticateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
-    if (apiKey && apiKey === SHARED_API_KEY) {
-        req.user = { role: 'admin', username: 'system' }; // Mock admin user
-        next();
-    } else {
-        // Fallback to JWT Check if no API Key
-        authenticateToken(req, res, next);
-    }
-};
-
+// ------------------------------------------------------------------
+// Rutas públicas
+// ------------------------------------------------------------------
 const apiRouter = express.Router();
 
 apiRouter.get('/ping', (req, res) => res.json({ message: 'pong', time: new Date().toISOString() }));
 
-apiRouter.post('/login', (req, res) => {
-    const { username, password } = req.body;
+apiRouter.post('/login', rateLimit({ windowMs: 60 * 1000, max: 10 }), (req, res) => {
+    const { username, password } = req.body || {};
     const users = readJson(USERS_FILE, []);
     const user = users.find(u => u.username === username);
-    if (!user || !bcrypt.compareSync(password, user.password)) return res.status(400).json({ error: 'Credenciales inválidas' });
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: '30d' });
+    if (!user || !bcrypt.compareSync(password || '', user.password)) {
+        logAccess('LOGIN_FAIL', { username, ip: req.ip });
+        return res.status(400).json({ error: 'Credenciales inválidas' });
+    }
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: '12h' });
+    logAccess('LOGIN_OK', { username, ip: req.ip });
     res.json({ token, username: user.username, role: user.role });
 });
 
-apiRouter.post('/register', (req, res) => {
-    // ... logic for invite registration (same as before) ...
-    // Keeping it brief here to focus on check-license
-    const { username, password, token } = req.body;
-    const invites = readJson(INVITES_FILE, {});
-    const invite = invites[token];
-    if (!invite) return res.status(400).json({ error: 'Invitación inválida' });
+// Activación: valida clave + HWID, vincula 1 licencia ↔ 1 equipo, devuelve token firmado.
+apiRouter.post('/activate', activationLimiter, (req, res) => {
+    const { key, hwid, systemName, clientPhone, clientEmail } = req.body || {};
+    if (!key || !hwid) return res.status(400).json({ ok: false, error: 'Faltan datos: key y hwid requeridos.' });
+    if (String(hwid).length < 8) return res.status(400).json({ ok: false, error: 'HWID inválido.' });
 
-    const users = readJson(USERS_FILE, []);
-    if (users.find(u => u.username === username)) return res.status(400).json({ error: 'Usuario existe' });
+    const data = readJson(DATA_FILE, { licenses: {} });
+    const license = data.licenses[key];
+    if (!license) {
+        logAccess('ACTIVATE_UNKNOWN', { key, hwid, ip: req.ip });
+        return res.status(404).json({ ok: false, status: 'desconocida', error: 'Clave de licencia no encontrada.' });
+    }
+    if (license.estado === 'revocada') {
+        logAccess('ACTIVATE_REVOKED', { key, hwid, ip: req.ip });
+        return res.status(403).json({ ok: false, status: 'revocada', error: 'Licencia revocada.' });
+    }
+    if (license.fechaExpiracion && new Date(license.fechaExpiracion).getTime() < Date.now()) {
+        return res.status(403).json({ ok: false, status: 'expirada', error: 'Licencia expirada.' });
+    }
+    if (license.hwid && license.hwid !== hwid) {
+        logAccess('ACTIVATE_OTHER_DEVICE', { key, hwid, boundTo: license.hwid, ip: req.ip });
+        return res.status(409).json({ ok: false, status: 'otro_equipo', error: 'La licencia ya está activada en otro equipo.' });
+    }
 
-    users.push({ id: Date.now(), username, password: bcrypt.hashSync(password, 12), role: invite.role, createdAt: new Date().toISOString() });
-    saveJson(USERS_FILE, users);
-    delete invites[token];
-    saveJson(INVITES_FILE, invites);
-    saveJson(INVITES_FILE, invites);
-    res.json({ success: true });
+    // Vincular al equipo (1 licencia = 1 equipo)
+    license.hwid = hwid;
+    license.estado = 'activa';
+    license.equipo = systemName || license.equipo || 'Equipo';
+    license.clientPhone = clientPhone || license.clientPhone || '';
+    license.clientEmail = clientEmail || license.clientEmail || '';
+    license.fechaActivacion = license.fechaActivacion || new Date().toISOString();
+    license.lastCheck = new Date().toISOString();
+    license.history = license.history || [];
+    license.history.push({ action: 'ACTIVATE', hwid, date: new Date().toISOString(), ip: req.ip });
+    saveJson(DATA_FILE, data);
+
+    logAccess('ACTIVATE_OK', { key, hwid, ip: req.ip });
+    const token = issueLicenseToken(license);
+    res.json({ ok: true, status: 'activa', token, plan: license.plan, expirationDate: license.fechaExpiracion || null });
 });
 
-// --- TOKEN REDEMPTION (PUBLIC) ---
-apiRouter.post('/redeem-token', (req, res) => {
-    const { token, hwid, systemName, clientPhone, clientEmail } = req.body;
+// Verificación (heartbeat): revalida estado y reemite token si sigue activa.
+apiRouter.post('/verify', activationLimiter, (req, res) => {
+    const { key, hwid } = req.body || {};
+    if (!key || !hwid) return res.status(400).json({ ok: false, error: 'Faltan datos.' });
 
-    if (!token || !hwid) {
-        return res.status(400).json({ error: 'Faltan datos: token y hwid requeridos.' });
+    const data = readJson(DATA_FILE, { licenses: {} });
+    const license = data.licenses[key];
+    if (!license) return res.status(404).json({ ok: false, status: 'desconocida' });
+    if (license.estado === 'revocada') {
+        logAccess('VERIFY_REVOKED', { key, hwid, ip: req.ip });
+        return res.status(403).json({ ok: false, status: 'revocada' });
     }
-
-    const tokensData = readJson(TOKENS_FILE, { tokens: {} });
-    const tokenInfo = tokensData.tokens[token];
-
-    if (!tokenInfo) {
-        return res.status(404).json({ error: 'Token inválido o no encontrado.' });
+    if (license.hwid && license.hwid !== hwid) {
+        return res.status(409).json({ ok: false, status: 'otro_equipo' });
     }
-
-    if (tokenInfo.status === 'used') {
-        return res.status(400).json({ error: 'Este token ya ha sido usado.' });
+    if (license.fechaExpiracion && new Date(license.fechaExpiracion).getTime() < Date.now()) {
+        return res.status(403).json({ ok: false, status: 'expirada' });
     }
-
-    // Calcular expiración
-    const days = tokenInfo.days || 3650; // Default 10 years
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + days);
-    const expStr = expirationDate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-    // Generar Licencia Firmada
-    const licenseKey = generateLicenseString(hwid, expStr, systemName || tokenInfo.clientName || 'Cliente Activado');
-
-    // Actualizar Token a USADO
-    tokenInfo.status = 'used';
-    tokenInfo.usedBy = hwid;
-    tokenInfo.usedAt = new Date().toISOString();
-    tokenInfo.generatedLicense = licenseKey; // Opcional: guardar copia de la licencia generada
-
-    // Guardar cambios en Tokens
-    tokensData.tokens[token] = tokenInfo;
-    saveJson(TOKENS_FILE, tokensData);
-
-    // Guardar/Actualizar Licencia en Base de Datos Principal (licenses.json)
-    const licensesData = readJson(DATA_FILE, { requests: {} });
-
-    licensesData.requests[hwid] = {
-        hwid,
-        systemName: systemName || tokenInfo.clientName || 'Cliente Activado',
-        clientPhone: clientPhone || '',
-        clientEmail: clientEmail || '',
-        active: true,
-        blocked: false,
-        hidden: false,
-        requestDate: new Date().toISOString(),
-        lastCheck: new Date().toISOString(),
-        history: [], // Initialize or append
-        licenseKey: licenseKey,
-        expirationDate: expStr,
-        activatedBy: 'token:' + token,
-        activationDate: new Date().toISOString()
-    };
-
-    // Add history entry
-    licensesData.requests[hwid].history.push({
-        action: 'TOKEN_REDEEM',
-        by: 'system',
-        date: new Date().toISOString(),
-        changes: {
-            desc: `Redeemed token ${token}`,
-            days: days
-        }
-    });
-
-    saveJson(DATA_FILE, licensesData);
-
-    console.log(`[TOKEN] Token ${token} canjeado por HWID ${hwid}`);
-
-    res.json({
-        success: true,
-        message: 'Token canjeado correctamente.',
-        licenseKey: licenseKey,
-        expirationDate: expStr
-    });
+    license.lastCheck = new Date().toISOString();
+    saveJson(DATA_FILE, data);
+    const token = issueLicenseToken(license);
+    const updateInfo = readJson(UPDATE_INFO_FILE, null);
+    res.json({ ok: true, status: 'activa', token, plan: license.plan, expirationDate: license.fechaExpiracion || null, update: updateInfo });
 });
 
-// --- CORE LOGIC: CHECK & AUTO-ACTIVATE ---
-apiRouter.post('/check-license', (req, res) => {
-    const { hwid, systemName, licenseKey, clientPhone, clientEmail } = req.body;
+// Trial firmado por servidor y ligado a HWID (no se reinicia borrando un archivo local).
+apiRouter.post('/trial', activationLimiter, (req, res) => {
+    const { hwid, systemName } = req.body || {};
+    if (!hwid || String(hwid).length < 8) return res.status(400).json({ ok: false, error: 'HWID inválido.' });
 
-    if (!hwid) return res.status(400).json({ error: 'HWID is required' });
-    if (hwid.startsWith('error') || hwid.length < 5) return res.status(400).json({ error: 'Invalid HWID: System information unavailable' });
-
-    const data = readJson(DATA_FILE, { requests: {} });
-    let license = data.requests[hwid];
-
-    // 1. Si la licencia ya existe y está bloqueada -> Rechazar
-    // Aquí usamos el HWID reportado por la máquina
-    if (license && license.blocked) {
-        return res.json({ authorized: false, message: 'License blocked', blocked: true });
+    const trials = readJson(TRIALS_FILE, { trials: {} });
+    const now = Date.now();
+    let t = trials.trials[hwid];
+    if (!t) {
+        const expEpoch = Math.floor((now + TRIAL_DURATION_HOURS * 3600 * 1000) / 1000);
+        t = { firstStart: new Date().toISOString(), expEpoch, systemName: systemName || '' };
+        trials.trials[hwid] = t;
+        saveJson(TRIALS_FILE, trials);
+        logAccess('TRIAL_START', { hwid, ip: req.ip });
     }
-
-    // 2. Si nos envían una licencia existente (Offline Key)
-    // Intentamos validarla SIN exigir que el HWID coincida exactamente, confiando en la firma
-    if (licenseKey && (!license || !license.active)) {
-        console.log(`Verificando licencia existente (Firma) para ${hwid}...`);
-
-        // Pass NULL for HWID to skip rigid check
-        const payload = verifyLicense(licenseKey, null);
-
-        if (payload) {
-            console.log(`Firma válida detectada (De: ${payload.hwid}). Auto-migrando a HWID actual: ${hwid}`);
-
-            // Generar una NUEVA licencia firmada para el HWID ACTUAL
-            // Esto asegura que el cliente reciba una llave compatible con su nuevo HWID estable
-            const newLicenseKey = generateLicenseString(
-                hwid, 
-                payload.exp || payload.expiration, 
-                systemName || payload.client || 'Recovered Client'
-            );
-
-            if (!license) {
-                license = {
-                    hwid: hwid,
-                    systemName: systemName || payload.client || 'Recovered Client',
-                    clientPhone: clientPhone || '',
-                    clientEmail: clientEmail || '',
-                    active: true,
-                    blocked: false,
-                    hidden: false,
-                    requestDate: new Date().toISOString(),
-                    lastCheck: new Date().toISOString(),
-                    history: [],
-                    licenseKey: newLicenseKey,
-                    expirationDate: payload.exp || payload.expiration
-                };
-            } else {
-                license.active = true;
-                license.licenseKey = newLicenseKey;
-                license.expirationDate = payload.exp || payload.expiration;
-                if (systemName) license.systemName = systemName;
-            }
-
-            // Guardar cambios
-            data.requests[hwid] = license;
-
-            // Log history for auto-activation
-            if (!license.history) license.history = [];
-            license.history.push({
-                action: 'AUTO_ACTIVATE',
-                by: 'system',
-                date: new Date().toISOString(),
-                changes: {
-                    desc: 'Auto-authorized via valid signed key'
-                }
-            });
-
-            // Ensure activatedBy is set if not present
-            if (!license.activatedBy) {
-                license.activatedBy = 'system';
-                license.activationDate = new Date().toISOString();
-            }
-
-            saveJson(DATA_FILE, data);
-
-            return res.json({
-                authorized: true,
-                message: 'Auto-authorized via valid signed key',
-                licenseKey: license.licenseKey,
-                expirationDate: license.expirationDate
-            });
-        }
+    if (t.expEpoch * 1000 < now) {
+        return res.status(403).json({ ok: false, status: 'trial_expirado', error: 'El período de prueba ha terminado.' });
     }
-
-    // 3. Flujo normal
-    if (license) {
-        if (license.active) {
-            // SELF-HEALING: Verificar si la licencia almacenada tiene el formato antiguo (expiration vs exp)
-            const currentPayload = verifyLicense(license.licenseKey, null);
-            if (currentPayload && !currentPayload.exp && currentPayload.expiration) {
-                console.log(`[AUTO-FIX] Corrigiendo formato de licencia para ${hwid} (expiration -> exp)`);
-                const newKey = generateLicenseString(
-                    license.hwid,
-                    license.expirationDate || currentPayload.expiration,
-                    license.systemName
-                );
-                license.licenseKey = newKey;
-                saveJson(DATA_FILE, data);
-            }
-
-            // Actualizamos lastCheck y guardamos una sola vez
-            license.lastCheck = new Date().toISOString();
-            if (systemName && license.systemName !== systemName) {
-                license.systemName = systemName;
-            }
-            if (clientPhone) license.clientPhone = clientPhone;
-            if (clientEmail) license.clientEmail = clientEmail;
-            saveJson(DATA_FILE, data);
-
-            // --- AÑADIR INFO DE ACTUALIZACIÓN ---
-            const updateInfo = readJson(UPDATE_INFO_FILE, null);
-
-            return res.json({
-                authorized: true,
-                message: 'License active',
-                licenseKey: license.licenseKey,
-                expirationDate: license.expirationDate,
-                update: updateInfo
-            });
-        } else {
-            // Actualizar info
-            if (systemName) license.systemName = systemName;
-            license.lastCheck = new Date().toISOString();
-            saveJson(DATA_FILE, data);
-            return res.json({ authorized: false, message: 'Pending activation' });
-        }
-    } else {
-        // Nueva solicitud
-        data.requests[hwid] = {
-            hwid,
-            systemName: systemName || 'Unknown',
-            clientPhone: clientPhone || '',
-            clientEmail: clientEmail || '',
-            active: false,
-            blocked: false,
-            hidden: false,
-            requestDate: new Date().toISOString(),
-            lastCheck: new Date().toISOString(),
-            history: []
-        };
-        saveJson(DATA_FILE, data);
-        return res.json({ authorized: false, message: 'Registration received. Pending manual activation.' });
-    }
-});
-
-// ... Internal Protected Routes ...
-apiRouter.get('/protected/licenses', authenticateToken, (req, res) => {
-    const { page = 1, limit = 20, search = '', tab = 'all' } = req.query;
-    const p = parseInt(page);
-    const l = parseInt(limit);
-    const searchQuery = search.toLowerCase();
-
-    const data = readJson(DATA_FILE, { requests: {} });
-    let licenses = Object.values(data.requests);
-
-    // 1. Filter by role/owner
-    if (req.user.role !== 'admin') {
-        licenses = licenses.filter(l => l.createdBy === req.user.username || !l.createdBy);
-    }
-
-    // 2. Filter by search query (HWID or SystemName)
-    if (searchQuery) {
-        licenses = licenses.filter(lic =>
-            (lic.systemName || '').toLowerCase().includes(searchQuery) ||
-            (lic.hwid || '').toLowerCase().includes(searchQuery)
-        );
-    }
-
-    // 3. Filter by tab status
-    const now = new Date();
-    if (tab !== 'all') {
-        licenses = licenses.filter(lic => {
-            const isHidden = lic.hidden === true;
-            const isActive = lic.active === true;
-            const isBlocked = lic.blocked === true;
-
-            const reqDate = new Date(lic.requestDate || lic.lastCheck);
-            const daysOld = (now - reqDate) / (1000 * 60 * 60 * 24);
-            const isVirtuallyHidden = isHidden || (!isActive && !isBlocked && daysOld > 3);
-
-            if (tab === 'pending') return !isActive && !isBlocked && !isVirtuallyHidden;
-            if (tab === 'active') return isActive && !isBlocked;
-            if (tab === 'hidden') return isVirtuallyHidden || isBlocked;
-            return true;
-        });
-    }
-
-    // 4. Sort
-    licenses.sort((a, b) => new Date(b.lastCheck) - new Date(a.lastCheck));
-
-    // 5. Paginate
-    const total = licenses.length;
-    const totalPages = Math.ceil(total / l);
-    const start = (p - 1) * l;
-    const paginatedLicenses = licenses.slice(start, start + l);
-
-    res.json({
-        licenses: paginatedLicenses,
-        total,
-        page: p,
-        pages: totalPages,
-        limit: l
-    });
-});
-
-apiRouter.post('/protected/toggle', authenticateToken, (req, res) => {
-    const { hwid, active, blocked, hidden, expirationDate } = req.body;
-    const data = readJson(DATA_FILE, { requests: {} });
-    if (data.requests[hwid]) {
-        const l = data.requests[hwid];
-        // Permission check skipped for brevity (add back if needed)
-
-        const prev = { active: l.active, blocked: l.blocked, hidden: l.hidden };
-
-        if (active !== undefined) l.active = active;
-        if (blocked !== undefined) l.blocked = blocked;
-        if (hidden !== undefined) l.hidden = hidden;
-
-        if (active) {
-            // SIEMPRE regenerar la licencia al activar para asegurar que use el formato más reciente (fix hwid/exp)
-            const exp = expirationDate || l.expirationDate || '2050-12-31';
-            l.expirationDate = exp;
-            l.licenseKey = generateLicenseString(hwid, exp, l.systemName);
-        }
-
-        // --- HISTORY & ACTIVATED_BY ---
-        if (!l.history) l.history = [];
-        const currentUser = req.user ? req.user.username : 'unknown';
-
-        l.history.push({
-            action: 'UPDATE',
-            by: currentUser,
-            date: new Date().toISOString(),
-            changes: {
-                prev: prev,
-                new: { active: l.active, blocked: l.blocked, hidden: l.hidden, exp: l.expirationDate }
-            }
-        });
-
-        if (active === true && !prev.active) {
-            l.activatedBy = currentUser;
-            l.activationDate = new Date().toISOString();
-        } else if (active === false && prev.active) {
-            // Optional: Clear activatedBy on revoke? Usually better to keep record of who LAST activated it, or clear it.
-            // We'll keep it but maybe add a 'revokedBy' if needed. For now just history is enough.
-        }
-        // ------------------------------
-
-        saveJson(DATA_FILE, data);
-        res.json({ success: true });
-    } else {
-        res.status(404).json({ error: 'Clean' });
-    }
-});
-
-apiRouter.post('/protected/delete', authenticateToken, (req, res) => {
-    const { hwid } = req.body;
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-
-    const data = readJson(DATA_FILE, { requests: {} });
-    if (data.requests[hwid]) {
-        delete data.requests[hwid];
-        saveJson(DATA_FILE, data);
-        res.json({ success: true });
-    } else {
-        res.status(404).json({ error: 'Not found' });
-    }
-});
-apiRouter.post('/protected/invite', authenticateToken, (req, res) => {
-    // ... invite logic ...
-    const token = crypto.randomUUID();
-    const invites = readJson(INVITES_FILE, {});
-    invites[token] = { role: req.body.role || 'operator', createdAt: new Date().toISOString() };
-    saveJson(INVITES_FILE, invites);
-    res.json({ success: true, token, link: `register.html?token=${token}` });
-});
-
-// --- ADMIN TOKEN GENERATION ---
-apiRouter.post('/protected/generate-tokens', authenticateApiKey, (req, res) => {
-    const { quantity, days, type, clientNote } = req.body;
-
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-
-    const numTokens = quantity || 1;
-    const tokenDays = days || 3650; // Default 10 years
-    const tokenType = type || 'PRO';
-
-    const tokensData = readJson(TOKENS_FILE, { tokens: {} });
-    const newTokens = [];
-
-    for (let i = 0; i < numTokens; i++) {
-        const token = crypto.randomUUID();
-        const tokenObj = {
-            status: 'unused',
-            type: tokenType,
-            days: tokenDays,
-            clientName: clientNote || null, // Optional note to identify batch
-            createdAt: new Date().toISOString(),
-            createdBy: req.user.username
-        };
-        tokensData.tokens[token] = tokenObj;
-        newTokens.push({ token, ...tokenObj });
-    }
-
-    saveJson(TOKENS_FILE, tokensData);
-
-    console.log(`[ADMIN] Generados ${numTokens} tokens por ${req.user.username}`);
-
-    res.json({
-        success: true,
-        message: `${numTokens} tokens generados.`,
-        tokens: newTokens
-    });
-});
-
-apiRouter.post('/protected/change-password', authenticateToken, (req, res) => {
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Faltan datos' });
-
-    const users = readJson(USERS_FILE, []);
-    const userIndex = users.findIndex(u => u.username === req.user.username); // req.user set in authenticateToken
-
-    if (userIndex === -1) return res.status(404).json({ error: 'Usuario no encontrado' });
-
-    const user = users[userIndex];
-    if (!bcrypt.compareSync(currentPassword, user.password)) {
-        return res.status(400).json({ error: 'Contraseña actual incorrecta' });
-    }
-
-    if (newPassword.length < 6) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
-
-    user.password = bcrypt.hashSync(newPassword, 12);
-    users[userIndex] = user;
-    saveJson(USERS_FILE, users);
-
-    res.json({ success: true, message: 'Contraseña actualizada' });
-});
-
-// --- UPDATE MANAGEMENT ---
-apiRouter.post('/update/publish', authenticateApiKey, (req, res) => {
-    const { version, downloadUrl, mandatory, changelog, description } = req.body;
-    if (!version || !downloadUrl) return res.status(400).json({ error: 'Faltan datos' });
-
-    const updateInfo = {
-        version,
-        downloadUrl,
-        mandatory: mandatory || false,
-        changelog: changelog || [],
-        description: description || '',
-        releaseDate: new Date().toISOString()
-    };
-
-    saveJson(UPDATE_INFO_FILE, updateInfo);
-    res.json({ success: true, message: 'Actualización publicada', data: updateInfo });
+    const token = issueTrialToken(hwid, t.expEpoch);
+    res.json({ ok: true, status: 'trial', token, expEpoch: t.expEpoch });
 });
 
 apiRouter.get('/update/info', (req, res) => {
     const updateInfo = readJson(UPDATE_INFO_FILE, null);
     if (!updateInfo) return res.status(404).json({ error: 'Sin info de actualización' });
     res.json(updateInfo);
+});
+
+// ------------------------------------------------------------------
+// Rutas admin (requieren login admin — NO API key compartida)
+// ------------------------------------------------------------------
+apiRouter.post('/admin/change-password', authenticateToken, (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Faltan datos' });
+    if (newPassword.length < 10) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 10 caracteres' });
+
+    const users = readJson(USERS_FILE, []);
+    const idx = users.findIndex(u => u.username === req.user.username);
+    if (idx === -1) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!bcrypt.compareSync(currentPassword, users[idx].password)) {
+        return res.status(400).json({ error: 'Contraseña actual incorrecta' });
+    }
+    users[idx].password = bcrypt.hashSync(newPassword, 12);
+    saveJson(USERS_FILE, users);
+    res.json({ success: true, message: 'Contraseña actualizada' });
+});
+
+// Crear licencia (única forma de generarla)
+apiRouter.post('/admin/licenses', authenticateToken, requireAdmin, (req, res) => {
+    const { plan, notas, dias, fechaExpiracion, cantidad } = req.body || {};
+    const count = Math.min(Math.max(parseInt(cantidad || 1, 10), 1), 100);
+    const data = readJson(DATA_FILE, { licenses: {} });
+
+    let exp = null;
+    if (fechaExpiracion) {
+        exp = new Date(fechaExpiracion).toISOString();
+    } else if (dias && parseInt(dias, 10) > 0) {
+        exp = new Date(Date.now() + parseInt(dias, 10) * 24 * 3600 * 1000).toISOString();
+    }
+
+    const created = [];
+    for (let i = 0; i < count; i++) {
+        let key = generateLicenseKey();
+        while (data.licenses[key]) key = generateLicenseKey();
+        data.licenses[key] = {
+            key,
+            plan: plan || 'PRO',
+            estado: 'pendiente',
+            hwid: null,
+            equipo: null,
+            notas: notas || '',
+            clientPhone: '',
+            clientEmail: '',
+            fechaCreacion: new Date().toISOString(),
+            fechaActivacion: null,
+            fechaExpiracion: exp,
+            lastCheck: null,
+            createdBy: req.user.username,
+            history: [{ action: 'CREATE', by: req.user.username, date: new Date().toISOString() }],
+        };
+        created.push(data.licenses[key]);
+    }
+    saveJson(DATA_FILE, data);
+    logAccess('LICENSE_CREATE', { by: req.user.username, count });
+    res.json({ success: true, licenses: created });
+});
+
+// Listar licencias (búsqueda + paginación + filtro por estado)
+apiRouter.get('/admin/licenses', authenticateToken, requireAdmin, (req, res) => {
+    const { page = 1, limit = 20, search = '', estado = 'all' } = req.query;
+    const p = Math.max(parseInt(page, 10), 1);
+    const l = Math.min(Math.max(parseInt(limit, 10), 1), 200);
+    const q = String(search).toLowerCase();
+
+    const data = readJson(DATA_FILE, { licenses: {} });
+    let list = Object.values(data.licenses);
+
+    if (q) {
+        list = list.filter(x =>
+            (x.key || '').toLowerCase().includes(q) ||
+            (x.equipo || '').toLowerCase().includes(q) ||
+            (x.hwid || '').toLowerCase().includes(q) ||
+            (x.notas || '').toLowerCase().includes(q));
+    }
+    if (estado !== 'all') list = list.filter(x => x.estado === estado);
+
+    list.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+
+    const total = list.length;
+    const start = (p - 1) * l;
+    res.json({
+        licenses: list.slice(start, start + l),
+        total, page: p, pages: Math.ceil(total / l), limit: l,
+    });
+});
+
+apiRouter.post('/admin/licenses/revoke', authenticateToken, requireAdmin, (req, res) => {
+    const { key } = req.body || {};
+    const data = readJson(DATA_FILE, { licenses: {} });
+    const lic = data.licenses[key];
+    if (!lic) return res.status(404).json({ error: 'Licencia no encontrada' });
+    lic.estado = 'revocada';
+    lic.history = lic.history || [];
+    lic.history.push({ action: 'REVOKE', by: req.user.username, date: new Date().toISOString() });
+    saveJson(DATA_FILE, data);
+    logAccess('LICENSE_REVOKE', { key, by: req.user.username });
+    res.json({ success: true });
+});
+
+apiRouter.post('/admin/licenses/reactivate', authenticateToken, requireAdmin, (req, res) => {
+    const { key } = req.body || {};
+    const data = readJson(DATA_FILE, { licenses: {} });
+    const lic = data.licenses[key];
+    if (!lic) return res.status(404).json({ error: 'Licencia no encontrada' });
+    lic.estado = lic.hwid ? 'activa' : 'pendiente';
+    lic.history = lic.history || [];
+    lic.history.push({ action: 'REACTIVATE', by: req.user.username, date: new Date().toISOString() });
+    saveJson(DATA_FILE, data);
+    logAccess('LICENSE_REACTIVATE', { key, by: req.user.username });
+    res.json({ success: true });
+});
+
+// Desvincular equipo (permite reactivar en un equipo distinto; decisión manual del dueño)
+apiRouter.post('/admin/licenses/unbind', authenticateToken, requireAdmin, (req, res) => {
+    const { key } = req.body || {};
+    const data = readJson(DATA_FILE, { licenses: {} });
+    const lic = data.licenses[key];
+    if (!lic) return res.status(404).json({ error: 'Licencia no encontrada' });
+    lic.hwid = null;
+    lic.equipo = null;
+    lic.estado = 'pendiente';
+    lic.history = lic.history || [];
+    lic.history.push({ action: 'UNBIND', by: req.user.username, date: new Date().toISOString() });
+    saveJson(DATA_FILE, data);
+    logAccess('LICENSE_UNBIND', { key, by: req.user.username });
+    res.json({ success: true });
+});
+
+apiRouter.delete('/admin/licenses', authenticateToken, requireAdmin, (req, res) => {
+    const { key } = req.body || {};
+    const data = readJson(DATA_FILE, { licenses: {} });
+    if (!data.licenses[key]) return res.status(404).json({ error: 'Licencia no encontrada' });
+    delete data.licenses[key];
+    saveJson(DATA_FILE, data);
+    logAccess('LICENSE_DELETE', { key, by: req.user.username });
+    res.json({ success: true });
+});
+
+apiRouter.post('/update/publish', authenticateToken, requireAdmin, (req, res) => {
+    const { version, downloadUrl, mandatory, changelog, description } = req.body || {};
+    if (!version || !downloadUrl) return res.status(400).json({ error: 'Faltan datos' });
+    const updateInfo = {
+        version, downloadUrl,
+        mandatory: mandatory || false,
+        changelog: changelog || [],
+        description: description || '',
+        releaseDate: new Date().toISOString(),
+    };
+    saveJson(UPDATE_INFO_FILE, updateInfo);
+    res.json({ success: true, message: 'Actualización publicada', data: updateInfo });
 });
 
 app.use('/api', apiRouter);
@@ -648,7 +459,4 @@ app.get(['/', '/admin', '/dashboard', '/admin-licencias', '/admin-licencias/*'],
     if (fs.existsSync(file)) res.sendFile(file); else res.status(404).send('Missing admin.html');
 });
 
-app.get(['/register', '/admin-licencias/register'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
-
-const HOST = (process.env.HOST || '127.0.0.1').trim();
 app.listen(PORT, HOST, () => console.log(`Servidor de licencias escuchando en http://${HOST}:${PORT}`));
