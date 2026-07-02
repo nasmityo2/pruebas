@@ -56,6 +56,13 @@ module.exports.upload = upload;
 try {
   initializeDB();
   startScheduler();
+
+  // Respaldos locales automáticos programables (Fase 6)
+  try {
+    require('./src/utils/localBackup').startBackupScheduler();
+  } catch (e) {
+    console.error('No se pudo iniciar el programador de respaldos:', e.message);
+  }
   
   // Verificación de licencia y actualizaciones en el arranque
   const { checkOnlineAndActivate } = require('./controllers/license.controller');
