@@ -19,7 +19,9 @@ let db;
 function openDatabase() {
   try {
     if (db && db.open) return;
-    db = new Database(dbPath, { verbose: console.log });
+    // 'verbose' solo en depuración explícita (SQL_VERBOSE=1). En producción NO se loguea SQL.
+    const options = process.env.SQL_VERBOSE === '1' ? { verbose: console.log } : {};
+    db = new Database(dbPath, options);
     console.log('Base de datos abierta correctamente.');
   } catch (error) {
     console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
@@ -1153,6 +1155,17 @@ function initializeDB() {
     console.log('Tablas de auditoría y usuarios verificadas.');
   } catch (e) {
     console.error('Error creando tablas de auditoría/usuarios:', e.message);
+  }
+
+  // ==========================
+  // MIGRACIONES VERSIONADAS (Fase 5) — con backup previo automático
+  // ==========================
+  try {
+    const { runMigrations } = require('./utils/migrations');
+    const result = runMigrations();
+    if (result.applied > 0) console.log(`Migraciones versionadas aplicadas: ${result.applied}`);
+  } catch (e) {
+    console.error('Error ejecutando migraciones versionadas:', e.message);
   }
 
   console.log('--- FINAL DE INICIALIZACIÓN DE DB (Base de datos lista) ---');

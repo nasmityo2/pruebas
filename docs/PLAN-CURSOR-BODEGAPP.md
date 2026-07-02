@@ -220,13 +220,13 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** migraciones versionadas, borrado seguro y tasas congeladas por venta.
 
-- [ ]  Crear tabla `_migrations` versionada + runner de migraciones idempotente.
-- [ ]  **Backup automático de la DB antes de migrar**.
-- [ ]  Unificar a **soft-delete** en todo; eliminar el `DELETE FROM productos` de `sales.controller.js` (conflicto con el soft-delete de `product.controller.js`).
-- [ ]  Congelar la **tasa aplicada al momento de la venta** (guardar tasa en la venta) para que cambios futuros de tasa **no afecten ventas pasadas**.
-- [ ]  Revisar y crear las migraciones faltantes de **Cashea** (`cashea_ventas`, `cashea_cuotas`) para que el módulo no rompa.
-- [ ]  Quitar `verbose: console.log` de better-sqlite3 en producción.
-- [ ]  Añadir índices SQL en columnas de búsqueda frecuente (productos, ventas, clientes).
+- [x]  Crear tabla `_migrations` versionada + runner de migraciones idempotente.
+- [x]  **Backup automático de la DB antes de migrar**.
+- [x]  Unificar a **soft-delete** en todo; eliminar el `DELETE FROM productos` de `sales.controller.js` (conflicto con el soft-delete de `product.controller.js`).
+- [x]  Congelar la **tasa aplicada al momento de la venta** (guardar tasa en la venta) para que cambios futuros de tasa **no afecten ventas pasadas**.
+- [x]  Revisar y crear las migraciones faltantes de **Cashea** (`cashea_ventas`, `cashea_cuotas`) para que el módulo no rompa.
+- [x]  Quitar `verbose: console.log` de better-sqlite3 en producción.
+- [x]  Añadir índices SQL en columnas de búsqueda frecuente (productos, ventas, clientes).
 
 **Criterio de aceptación:** migraciones versionadas con backup previo; no hay borrado físico de ventas/abonos; tasas históricas intactas; Cashea con sus tablas; sin logging de SQL en prod.
 
