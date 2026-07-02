@@ -340,46 +340,46 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 ## A.1 🔐 Licencias — cliente (→ Fase 2)
 
 - [ ]  🔴 `verifyPassword()` retorna `true` cuando `adminPasswordHash` es `null`: sin contraseña configurada, cualquier verificación admin pasa. — `src/utils/auth.js:14-17`
-- [ ]  🔴 Trial reiniciable: borrar `uploads/.sys/init.dat` (o `sys.dat`) hace que `checkTrialStatus()` cree uno nuevo con `firstRun: now`, reseteando las 72h. — `src/utils/license.js:493-507`
-- [ ]  🔴 Trial protegido solo por HMAC con `TRIAL_SECRET_KEY`, que vive en el cliente empaquetado; quien lo extraiga puede forjar `init.dat` con `onlineLicense.active: true`. — `src/utils/license.js:447-484`
-- [ ]  🔴 `getAppStatus()` devuelve `LICENSED` si `trialData.onlineLicense.active === true` en el archivo local, sin revalidar contra el servidor en ese momento. — `src/utils/license.js:587-590`
-- [ ]  🟠 Expiración offline compara el reloj local del sistema con `payload.exp`: atrasar el reloj prolonga licencias vencidas. — `src/utils/license.js:427-434`
-- [ ]  🟠 `checkActivationHistory()` acepta un HWID distinto si coincide `baseId`, `fallbackId` o `biosSerial` del historial local cifrado, relajando el amarre a hardware. — `src/utils/license.js:305-347,420-424`
-- [ ]  🟠 Contraseña admin con dos algoritmos incompatibles: HMAC-SHA256 (`auth.js`) vs `crypto.createHash('sha256')` (`settings.controller`). Un hash guardado por un endpoint no valida en el otro. — `src/utils/auth.js:5-8` vs `controllers/settings.controller.js:216`
-- [ ]  🟡 `licenseKey` y `adminPasswordHash` se guardan en texto plano en `business-settings.json` (`%APPDATA%`), editable por el usuario. — `src/utils/settings.js:16,191-192`
-- [ ]  🟡 Hash de contraseña admin con HMAC-SHA256 en vez de bcrypt/argon2 (vulnerable a fuerza bruta offline sobre el JSON local). — `src/utils/auth.js:5-7`
+- [x]  🔴 Trial reiniciable: borrar `uploads/.sys/init.dat` (o `sys.dat`) hace que `checkTrialStatus()` cree uno nuevo con `firstRun: now`, reseteando las 72h. — `src/utils/license.js:493-507` *(Fase 2: trial ahora es token firmado por el servidor y ligado a HWID; el servidor registra `firstStart` por HWID, borrar archivos locales no resetea nada.)*
+- [x]  🔴 Trial protegido solo por HMAC con `TRIAL_SECRET_KEY`, que vive en el cliente empaquetado; quien lo extraiga puede forjar `init.dat` con `onlineLicense.active: true`. — `src/utils/license.js:447-484` *(Fase 2: eliminado el trial HMAC local; el trial se firma con RSA en el servidor y el cliente solo verifica.)*
+- [x]  🔴 `getAppStatus()` devuelve `LICENSED` si `trialData.onlineLicense.active === true` en el archivo local, sin revalidar contra el servidor en ese momento. — `src/utils/license.js:587-590` *(Fase 2: `getAppStatus()` verifica el token firmado (RSA+HWID+exp); no existe el flag local `onlineLicense.active`.)*
+- [~]  🟠 Expiración offline compara el reloj local del sistema con `payload.exp`: atrasar el reloj prolonga licencias vencidas. — `src/utils/license.js:427-434` *(MITIGADO en Fase 2: ventana de gracia corta (def. 7 días) + heartbeat online revalida; el atraso de reloj solo sirve dentro de esa ventana.)*
+- [x]  🟠 `checkActivationHistory()` acepta un HWID distinto si coincide `baseId`, `fallbackId` o `biosSerial` del historial local cifrado, relajando el amarre a hardware. — `src/utils/license.js:305-347,420-424` *(Fase 2: eliminado; el HWID del token debe coincidir exactamente con el del equipo.)*
+- [x]  🟠 Contraseña admin con dos algoritmos incompatibles: HMAC-SHA256 (`auth.js`) vs `crypto.createHash('sha256')` (`settings.controller`). — `src/utils/auth.js` vs `controllers/settings.controller.js` *(Fase 4 + fix: ambos usan ahora el mismo `hashPassword` bcrypt.)*
+- [ ]  🟡 `licenseKey` y `adminPasswordHash` se guardan en texto plano en `business-settings.json` (`%APPDATA%`), editable por el usuario. — `src/utils/settings.js:16,191-192` *(Riesgo reducido: `licenseKey` ya NO es la fuente de verdad (caché cifrada + servidor) y `adminPasswordHash` es bcrypt; aún así el archivo sigue en claro. Pendiente cifrar el archivo.)*
+- [x]  🟡 Hash de contraseña admin con HMAC-SHA256 en vez de bcrypt/argon2 (vulnerable a fuerza bruta offline sobre el JSON local). — `src/utils/auth.js:5-7` *(Fase 4: migrado a bcrypt factor 12.)*
 
 ## A.2 🔐 Licencias — servidor (→ Fase 2)
 
-- [ ]  🔴 `/check-license` re-vincula una licencia firmada a un HWID nuevo: una clave copiada/robada se auto-migra al equipo del atacante y recibe licencia firmada. — `license-server/server.js:292-360`
-- [ ]  🔴 `POST /redeem-token` es público y genera licencias PRO firmadas con solo un UUID de token válido (sin auth ni rate limiting). — `license-server/server.js:196-274`
-- [ ]  🔴 `SHARED_API_KEY` en header `x-api-key` otorga rol admin sintético (acceso a `generate-tokens` y `update/publish`). — `license-server/server.js:152-161`
-- [ ]  🔴 `POST /update/publish` no verifica rol admin: cualquier JWT válido publica `downloadUrl` arbitrario. — `license-server/server.js:619-634`
-- [ ]  🔴 Updates sin firma digital: el cliente descarga y ejecuta el `.exe` de `downloadUrl` sin verificar hash/firma (cadena RCE). — `license-server/server.js:619-634` + `public/js/updater.js:74-120`
-- [ ]  🔴 Race conditions: patrón `readJson → modificar → saveJson` sin locks ni escritura atómica en `licenses.json`/`users.json`/`activation_tokens.json`. — `license-server/server.js:55-65`
-- [ ]  🟠 `POST /protected/invite` y `POST /protected/toggle` sin chequeo de rol; `invite` acepta `role: 'admin'` arbitrario. — `license-server/server.js:485-490,548-555`
-- [ ]  🟠 CORS totalmente abierto y sin rate limiting en `/login` (fuerza bruta). — `license-server/server.js:45,167-174`
-- [ ]  🟠 Expiración no se valida server-side al responder `authorized: true` (solo se aplica offline en el cliente). — `license-server/server.js:365-398`
-- [ ]  🟠 JWT (30 días) guardado en `localStorage` del panel + XSS en `renderList` (`onclick` con `hwid`/`systemName` sin escapar). — `license-server/public/admin.html:327-328,580-597`
-- [ ]  🟠 `generatedLicense` (clave PRO completa) se persiste en claro en `activation_tokens.json`. — `license-server/server.js:227`
-- [ ]  🟡 API key comparada con `===` en vez de `crypto.timingSafeEqual`; login enumera usuarios por timing. — `license-server/server.js:154,171`
-- [ ]  🟡 `readJson` hace `JSON.parse` sin try/catch → un JSON corrupto tumba el proceso (DoS). — `license-server/server.js:55-61`
+- [x]  🔴 `/check-license` re-vincula una licencia firmada a un HWID nuevo: una clave copiada/robada se auto-migra al equipo del atacante y recibe licencia firmada. — *(Fase 2: `/check-license` eliminado; `/activate` rechaza (409) una clave ya vinculada a otro HWID.)*
+- [x]  🔴 `POST /redeem-token` es público y genera licencias PRO firmadas con solo un UUID de token válido (sin auth ni rate limiting). — *(Fase 2: `/redeem-token` eliminado; las licencias solo las genera el admin autenticado.)*
+- [x]  🔴 `SHARED_API_KEY` en header `x-api-key` otorga rol admin sintético. — *(Fase 2: `authenticateApiKey` y `SHARED_API_KEY` eliminados del flujo de auth.)*
+- [x]  🔴 `POST /update/publish` no verifica rol admin: cualquier JWT válido publica `downloadUrl` arbitrario. — *(Fase 2: ahora exige `authenticateToken` + `requireAdmin`.)*
+- [ ]  🔴 Updates sin firma digital: el cliente descarga y ejecuta el `.exe` de `downloadUrl` sin verificar hash/firma (cadena RCE). — *(PARCIAL: en Fase 3 `download-update`/`execute-update` quedaron solo-localhost; FALTA verificar firma/hash del binario. Pendiente.)*
+- [ ]  🔴 Race conditions: patrón `readJson → modificar → saveJson` sin locks ni escritura atómica. — *(Pendiente: escritura atómica/lock. Riesgo bajo hoy: un único admin, baja concurrencia.)*
+- [x]  🟠 `POST /protected/invite` y `POST /protected/toggle` sin chequeo de rol; `invite` acepta `role: 'admin'` arbitrario. — *(Fase 2: esos endpoints se eliminaron; los nuevos `/admin/*` usan `requireAdmin`.)*
+- [~]  🟠 CORS totalmente abierto y sin rate limiting en `/login` (fuerza bruta). — *(Fase 2: rate limiting añadido a `/login`, `/activate`, `/verify`, `/trial`. CORS del panel configurable por `PANEL_ORIGIN` pero abierto por defecto — pendiente restringir en despliegue.)*
+- [x]  🟠 Expiración no se valida server-side al responder `authorized: true`. — *(Fase 2: `/activate` y `/verify` validan `fechaExpiracion` en el servidor (403 expirada).)*
+- [ ]  🟠 JWT guardado en `localStorage` del panel + XSS en `renderList`. — *(PARCIAL: panel reescrito, JWT ahora dura 12h y las claves usan charset seguro; sigue en `localStorage`. Pendiente escapar `notas`/`equipo` y mover el token fuera de localStorage.)*
+- [x]  🟠 `generatedLicense` (clave PRO completa) se persiste en claro en `activation_tokens.json`. — *(Fase 2: `activation_tokens.json` eliminado; no hay tokens de canje.)*
+- [~]  🟡 API key comparada con `===`; login enumera usuarios por timing. — *(Fase 2: API key eliminada; login devuelve el mismo error para usuario/clave inválidos (sin enumeración). No se usa `timingSafeEqual` explícito.)*
+- [x]  🟡 `readJson` hace `JSON.parse` sin try/catch → un JSON corrupto tumba el proceso (DoS). — *(Fase 2: `readJson` ahora captura el error y reinicia con valores por defecto.)*
 - [ ]  🟡 Sin headers de seguridad (helmet) ni dependencias de hardening; duración por defecto de tokens/licencias ~3650 días. — `license-server/server.js`, `license-server/package.json`
 
 ## A.3 🌐 Red y endpoints sin autenticación (→ Fase 3)
 
 > Nota: `0.0.0.0`, CORS `origin:true` y firewall 53050–53060 ya están contemplados en la Fase 3. Aquí se listan endpoints concretos sin auth que faltan endurecer.
 
-- [ ]  🔴 Cadena RCE: `POST /api/utils/download-update` descarga un `.exe` desde una URL arbitraria del body y `POST /api/utils/execute-update` lo ejecuta con `spawn` + `process.exit(0)`, sin firma ni validación de origen. — `controllers/utils.controller.js:58-141`
-- [ ]  🔴 `POST /api/backup/cloud/restore` reemplaza `mi-tienda.db` con un `.db` remoto sin pedir contraseña admin (solo `token`+`filename`). — `routes/backup.routes.js:151-309`
-- [ ]  🟠 `POST /api/print/remote` (printText/printHTML/getPrinters) sin token ni validación de origen. — `server.js:274-299`
-- [ ]  🟠 `POST /api/settings/admin-password` permite fijar o **borrar** la contraseña admin sin auth previa. — `controllers/settings.controller.js:201-236`, `routes/settings.routes.js:19`
-- [ ]  🟠 `POST /api/license/activate` cambia la licencia local sin auth. — `routes/license.routes.js:8`
-- [ ]  🟠 `DELETE /api/reports/void/:saleId`, `/cash-withdrawal`, `/cash-opening`, `/cash-advance` sin verificación admin. — `routes/reports.routes.js:28,35-41`
+- [ ]  🔴 Cadena RCE: `POST /api/utils/download-update` descarga un `.exe` desde una URL arbitraria del body y `POST /api/utils/execute-update` lo ejecuta con `spawn` + `process.exit(0)`, sin firma ni validación de origen. — *(PARCIAL Fase 3: ambos son solo-localhost (bloqueados en LAN). FALTA verificación de firma/hash del binario antes de ejecutar. Pendiente.)*
+- [x]  🔴 `POST /api/backup/cloud/restore` reemplaza `mi-tienda.db` con un `.db` remoto sin pedir contraseña admin (solo `token`+`filename`). — *(Fase 4/6: `ensureUnlocked` exige clave admin para restaurar; además la nube está desactivada por defecto.)*
+- [ ]  🟠 `POST /api/print/remote` (printText/printHTML/getPrinters) sin token ni validación de origen. — `server.js` *(Pendiente; en LAN queda tras el gate de token temporal, pero sin auth adicional.)*
+- [x]  🟠 `POST /api/settings/admin-password` permite fijar o **borrar** la contraseña admin sin auth previa. — *(Fix Fase 10: `updateAdminPassword` ahora exige `ensureUnlocked` para cambiar/borrar (cuando ya hay clave) y usa bcrypt; queda auditado.)*
+- [~]  🟠 `POST /api/license/activate` cambia la licencia local sin auth. — *(Fase 4: cambiar la licencia estando YA licenciado exige clave admin; la activación de recuperación (bloqueado) se permite a propósito.)*
+- [~]  🟠 `DELETE /api/reports/void/:saleId`, `/cash-withdrawal`, `/cash-opening`, `/cash-advance` sin verificación admin. — *(Fase 4: `void` ya exige clave admin y queda auditado. FALTA gatear cash-withdrawal/opening/advance.)*
 - [ ]  🟠 `POST /api/backup/cloud/save-token` y `DELETE .../remove-token` sin auth. — `routes/backup.routes.js:90-143`
 - [ ]  🟠 Carpeta `uploads` servida estáticamente en `/uploads/` sin control de acceso; `parseMultipartUpload` usa la extensión del `filename` del cliente sin validar MIME/tamaño/whitelist. — `server.js:172-205,229-236`
 - [ ]  🟠 `preload.js` expone `invoke/send/receive` genéricos sin whitelist de canales; el renderer puede invocar cualquier handler IPC (p. ej. `app:restart`). — `preload.js:5-15`
-- [ ]  🟠 `bcvUpdater` usa `rejectUnauthorized: false` en `https.get` al scrapear BCV (MITM posible). — `src/services/bcvUpdater.js:21`
+- [~]  🟠 `bcvUpdater` usa `rejectUnauthorized: false` en `https.get` al scrapear BCV (MITM posible). — `src/services/bcvUpdater.js:21` *(Fase 1: se quitó del fallback parametrizado; el scraper directo de bcv.org.ve lo conserva por los problemas de certificado del sitio gubernamental. Pendiente evaluar.)*
 - [ ]  🟡 El error handler global filtra `error.message` y `error.name` al cliente. — `server.js:308-315`
 - [ ]  🔵 No hay Electron Fuses configurados (`RunAsNode`, `EnableNodeCliInspectArguments`, etc.). Positivo: `contextIsolation:true` y `nodeIntegration:false` ya están bien — no tocar. — `main.js`
 
@@ -419,7 +419,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟡 `db.prepare(...)` dentro de funciones/loops en vez de una sola vez (recalc, `processSaleTransaction`, `importProducts`). — `controllers/sales.controller.js:206-207,398-438`, `controllers/product.controller.js:620`
 - [ ]  🔵 `cancelSale` está exportado pero **sin ruta** y duplica la lógica de `voidSale`. — `controllers/sales.controller.js:1015-1068`
 - [ ]  🔵 `printSettings.controller.js` no está ruteado; hay 3 implementaciones de config de impresión con campos distintos (`printHeader` vs `ticketHeader`, etc.). — `controllers/printSettings.controller.js`, `routes/printSettings.routes.js`, `routes/settings.routes.js`
-- [ ]  🔵 `routes/rapikom.routes.js` nunca se registra con `registerExpressRouter` → sus rutas están muertas. — `routes/rapikom.routes.js` vs `server.js:256-271`
+- [x]  🔵 `routes/rapikom.routes.js` nunca se registra con `registerExpressRouter` → sus rutas están muertas. — *(Fase 7: rapikom y temp_advance eliminados por completo.)*
 - [ ]  🔵 DDL como side-effect al cargar el módulo: `db.exec('CREATE TABLE IF NOT EXISTS cierres_z ...')`. — `controllers/reports.controller.js:316-329`
 - [ ]  🔵 `cloudBackup.js` copia SQLite en caliente con `fs.copyFileSync` (sin `.backup()`/checkpoint WAL) y reutiliza el mismo `FormData` en reintentos (stream ya consumido). — `src/utils/cloudBackup.js:46-48,96-144`
 - [ ]  🔵 `bcvUpdater.startScheduler()` usa `setInterval` sin `clearInterval` al cerrar la app. — `src/services/bcvUpdater.js:182-184`
@@ -435,7 +435,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟠 `config_cloud.html` guarda `cloud_token`/`cloud_user` en `localStorage` (robables vía XSS). — `public/config_cloud.html:538-540`
 - [ ]  🟡 `showGlobalConfirm()` retorna `true` si no existe el modal → confirma acciones (anular abono, abono parcial) sin interacción del usuario. — `public/js/cobranza.js:74-80`, `public/js/detalles_venta.js:49-56`
 - [ ]  🟡 `setInterval` sin `clearInterval`: updater cada 30 min, tasas del POS cada 60 s, autosave de etiquetas cada 5 s y badge cada 2 s. — `public/js/updater.js:105-133`, `public/js/pos.js:4673-4675`, `public/js/etiquetas.js:1322,1575-1577`
-- [ ]  🔵 `JsBarcode.all.min.js` se carga en `pos.html`/`cobranza.html` pero no se usa. — `public/pos.html:13`, `public/cobranza.html:13`
+- [x]  🔵 `JsBarcode.all.min.js` se carga en `pos.html`/`cobranza.html` pero no se usa. — *(Fase 8: eliminado de `index.html`, `pos.html` y `cobranza.html`.)*
 - [ ]  🔵 Clave `presentationId` duplicada en el literal de objeto de `addPresentationToCart`. — `public/js/pos.js:968-969`
 
 ## A.8 📥 Cargas masivas — rendimiento frontend (→ Fase 7 / Fase 8)
