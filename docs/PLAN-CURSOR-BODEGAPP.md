@@ -280,13 +280,15 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** rendimiento y bugs, manteniendo el diseño actual (que al dueño le gusta).
 
-- [ ]  Reducir assets pesados (ej. `default-logo.png` ~941KB → optimizar/redimensionar).
-- [ ]  Eliminar librerías/JS no usados; cargar bajo demanda los módulos pesados (`inventario.js` ~109KB, `cobranza.js` ~73KB, `etiquetas.js` ~55KB).
-- [ ]  Revisar y corregir bugs detectados durante el refactor (sin rediseñar la UI).
-- [ ]  Mejorar la UX del módulo **Cashea** (según decisión de mejorarla).
-- [ ]  Medir tiempo de arranque y de vistas pesadas antes/después.
+- [x]  Reducir assets pesados (ej. `default-logo.png` ~941KB → optimizar/redimensionar). *(919KB → 49KB: redimensionado 1024²→256² con downsampling promediado; PNG válido.)*
+- [x]  Eliminar librerías/JS no usados; cargar bajo demanda los módulos pesados (`inventario.js` ~109KB, `cobranza.js` ~73KB, `etiquetas.js` ~55KB). *(`JsBarcode` (65KB) eliminado de `index.html`, `pos.html` y `cobranza.html` donde no se usa (solo lo usan inventario/etiquetas, que lo cargan ellos). Los JS pesados por página ya cargan bajo demanda por la arquitectura de iframes: cada `*.html` carga su propio script solo al abrir esa vista.)*
+- [x]  Revisar y corregir bugs detectados durante el refactor (sin rediseñar la UI). *(Corregido en Fase 1 el crash de QR con contenido vacío; guardas añadidas en pos/reprint/sales.)*
+- [~]  Mejorar la UX del módulo **Cashea** (según decisión de mejorarla). *(DIFERIDO: mejora de UX sin poder validar en runtime (Electron) es riesgosa; se aseguraron sus migraciones en Fase 5. Pendiente de una sesión con GUI.)*
+- [~]  Medir tiempo de arranque y de vistas pesadas antes/después. *(No medible en entorno headless. Mejora objetiva: ~1MB menos de assets en el arranque del shell — logo −870KB y −65KB de JsBarcode.)*
 
 **Criterio de aceptación:** carga más rápida, sin assets innecesarios, bugs corregidos, diseño intacto.
+
+> **Nota Fase 8:** reducción de ~935KB en assets (logo + JsBarcode redundante) sin tocar el diseño. La carga bajo demanda de módulos pesados ya la garantiza la arquitectura de iframes. La mejora de UX de Cashea y la medición de tiempos se difieren a una sesión con GUI.
 
 **Commit sugerido:** `perf(fase-8): optimización de assets, carga bajo demanda y fixes de UI`
 
