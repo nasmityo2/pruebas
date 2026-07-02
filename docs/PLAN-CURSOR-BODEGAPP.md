@@ -179,11 +179,11 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 **Meta:** permitir uso desde el celular en la LAN sin exponer la seguridad.
 
-- [ ]  Backend Fastify escucha por defecto en `127.0.0.1`; el acceso LAN se **activa manualmente** desde Configuración.
-- [ ]  Cuando se active LAN, exigir **token/QR temporal con expiración** para conectar el celular.
-- [ ]  Que `configurar-firewall.bat` no abra puertos por defecto; abrir solo el puerto necesario y solo cuando el usuario active el modo LAN.
-- [ ]  Añadir autenticación a los endpoints internos sensibles (no dejar rutas abiertas por estar en localhost).
-- [ ]  Cabeceras de seguridad básicas y CORS restringido a orígenes conocidos.
+- [x]  Backend Fastify escucha por defecto en `127.0.0.1`; el acceso LAN se **activa manualmente** desde Configuración.
+- [x]  Cuando se active LAN, exigir **token/QR temporal con expiración** para conectar el celular.
+- [x]  Que `configurar-firewall.bat` no abra puertos por defecto; abrir solo el puerto necesario y solo cuando el usuario active el modo LAN.
+- [x]  Añadir autenticación a los endpoints internos sensibles (no dejar rutas abiertas por estar en localhost).
+- [x]  Cabeceras de seguridad básicas y CORS restringido a orígenes conocidos.
 
 **Criterio de aceptación:** por defecto no se accede desde fuera; el modo LAN pide token/QR temporal; el firewall no queda abierto sin acción del usuario.
 
@@ -473,3 +473,5 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 | 🟡 Media | 5, 6 | Integridad de datos y respaldos |
 | 🔵 Normal | 7, 8 | Refactor y rendimiento |
 | 🟢 Cierre | 9, 10 | Tests y distribución segura |
+
+> 📎 Ver **Anexo A** (al final de las fases) para el catálogo de bugs/optimizaciones detectados en auditoría, ya repartidos por fase. Cada ítem está sin corregir y con su `archivo:línea` para completarlo.

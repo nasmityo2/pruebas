@@ -10,4 +10,7 @@ router.post('/execute-update', utilsController.executeUpdate);
 
 router.post('/configure-firewall', utilsController.configureFirewall);
 
+router.get('/lan-status', utilsController.getLanStatus);
+router.post('/lan-enable', utilsController.setLanMode);
+
 module.exports = router;

@@ -209,13 +209,19 @@ async function parseMultipartUpload(request, reply) {
 // y la API de licencia. Todo lo demás (módulos y APIs de negocio) se bloquea.
 // Esto hace inútil saltarse el JS del cliente: la verdad la impone el servidor local.
 const { getAppStatus } = require('./src/utils/license');
+const { isLanEnabled, verifyLanToken, isLoopbackAddress, LAN_TOKEN_TTL_MS } = require('./src/utils/network');
+const { decideAccess } = require('./src/utils/accessGate');
 
-const ALLOWED_PREFIXES_WHEN_UNLICENSED = ['/css/', '/js/', '/images/', '/uploads/', '/fonts/', '/api/license'];
-const ALLOWED_EXACT_WHEN_UNLICENSED = new Set(['/activacion.html', '/favicon.ico', '/images/favicon.ico']);
-
-function isAllowedWhenUnlicensed(pathname) {
-  if (ALLOWED_EXACT_WHEN_UNLICENSED.has(pathname)) return true;
-  return ALLOWED_PREFIXES_WHEN_UNLICENSED.some(p => pathname.startsWith(p));
+function parseCookie(cookieHeader, name) {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(';');
+  for (const part of parts) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const k = part.slice(0, idx).trim();
+    if (k === name) return decodeURIComponent(part.slice(idx + 1).trim());
+  }
+  return null;
 }
 
 let _licenseCache = { value: false, at: 0 };
@@ -238,23 +244,64 @@ function isLicensedNow() {
 function invalidateLicenseCache() { _licenseCache = { value: false, at: 0 }; }
 global.__invalidateLicenseGate = invalidateLicenseCache;
 
+// CORS restringido: solo se acepta origen ausente (mismo origen) o de loopback/LAN privada.
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // mismo origen / peticiones sin cabecera Origin
+  try {
+    const host = new URL(origin).hostname;
+    if (isLoopbackAddress(host) || host === 'localhost') return true;
+    // Rangos LAN privados (solo relevantes si el modo LAN está activo)
+    if (/^10\./.test(host)) return true;
+    if (/^192\.168\./.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function startFastifyServer() {
-  // Register CORS
+  // Register CORS (restringido a loopback/LAN privada)
   const cors = require('@fastify/cors');
-  await fastify.register(cors, { origin: true });
+  await fastify.register(cors, {
+    origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
+  });
 
-  // Gate de licencia: se ejecuta antes de servir cualquier ruta/archivo estático.
+  // Cabeceras de seguridad básicas.
+  fastify.addHook('onSend', async (request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'SAMEORIGIN');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('X-DNS-Prefetch-Control', 'off');
+    return payload;
+  });
+
+  // Control de acceso LAN + gate de licencia: antes de servir cualquier ruta o archivo.
   fastify.addHook('onRequest', async (request, reply) => {
-    if (isLicensedNow()) return;
     const pathname = (request.raw.url || '/').split('?')[0];
-    if (isAllowedWhenUnlicensed(pathname)) return;
+    const remote = request.ip || (request.socket && request.socket.remoteAddress);
+    const cookieToken = parseCookie(request.headers.cookie, 'lanToken');
+    const queryToken = (request.query && request.query.lt) ? String(request.query.lt) : null;
 
-    if (pathname.startsWith('/api/')) {
-      reply.code(403).send({ error: 'Licencia requerida', licenseRequired: true });
-      return reply;
+    const decision = decideAccess({
+      isLocal: isLoopbackAddress(remote),
+      pathname,
+      lanEnabled: isLanEnabled(),
+      tokenValidCookie: verifyLanToken(cookieToken),
+      tokenValidQuery: verifyLanToken(queryToken),
+      lanToken: queryToken,
+      licensed: isLicensedNow(),
+    });
+
+    if (decision.setCookie) {
+      reply.header('Set-Cookie', `lanToken=${decision.setCookie}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.floor(LAN_TOKEN_TTL_MS / 1000)}`);
     }
-    // Cualquier página de módulo o el shell principal => redirigir a la activación.
-    reply.redirect('/activacion.html');
+    if (decision.type === 'continue') return;
+    if (decision.type === 'redirect') { reply.redirect(decision.location); return reply; }
+    // deny
+    reply.code(decision.code);
+    if (decision.html) reply.type('text/html').send(decision.html);
+    else reply.send(decision.body);
     return reply;
   });
 
@@ -374,10 +421,12 @@ function start(port, printHandlers) {
     try {
       await startFastifyServer();
       
+      // Por defecto solo loopback. El modo LAN (opt-in) reenlaza a 0.0.0.0 tras reiniciar.
+      const bindHost = isLanEnabled() ? '0.0.0.0' : '127.0.0.1';
       const listenPort = async (p) => {
         try {
-          const address = await fastify.listen({ port: p, host: '0.0.0.0' });
-          console.log(`Servidor Fastify iniciado en ${address}`);
+          const address = await fastify.listen({ port: p, host: bindHost });
+          console.log(`Servidor Fastify iniciado en ${address} (host: ${bindHost})`);
           return p;
         } catch (err) {
           if (err.code === 'EADDRINUSE') {
@@ -390,6 +439,7 @@ function start(port, printHandlers) {
       };
 
       const finalPort = await listenPort(port);
+      global.dynamicPort = finalPort;
       resolve(finalPort);
     } catch (err) {
       console.error('Error fatal al iniciar servidor Fastify:', err);

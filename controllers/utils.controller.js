@@ -5,6 +5,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { isLanEnabled, saveNetworkConfig, createLanToken } = require('../src/utils/network');
 
 let downloadProgress = {
     percent: 0,
@@ -29,6 +30,20 @@ const getLocalIp = async (req, res) => {
       port = '53050';
     }
 
+    // El acceso móvil requiere el modo LAN activado (opt-in).
+    if (!isLanEnabled()) {
+      return res.json({
+        success: false,
+        urls: [],
+        qrCodeDataURL: null,
+        lanEnabled: false,
+        message: 'El acceso desde el móvil está desactivado. Actívalo en Configuración (requiere reiniciar la app).',
+      });
+    }
+
+    // Token temporal de conexión (expira). Se incluye en la URL/QR.
+    const { token } = createLanToken();
+
     const interfaces = os.networkInterfaces();
     const urls = [];
     let firstUrl = null;
@@ -36,7 +51,7 @@ const getLocalIp = async (req, res) => {
     for (const name of Object.keys(interfaces)) {
       for (const net of interfaces[name]) {
         if (net.family === 'IPv4' && !net.internal) {
-          const url = `http://${net.address}:${port}`;
+          const url = `http://${net.address}:${port}/?lt=${token}`;
           urls.push(url);
           if (!firstUrl) firstUrl = url;
         }
@@ -45,7 +60,7 @@ const getLocalIp = async (req, res) => {
 
     if (firstUrl) {
       const qrCodeDataURL = await qrcode.toDataURL(firstUrl);
-      res.json({ success: true, urls, qrCodeDataURL });
+      res.json({ success: true, urls, qrCodeDataURL, lanEnabled: true });
     } else {
       res.json({ success: false, urls: [], qrCodeDataURL: null, message: 'No se encontró IP local.' });
     }
@@ -153,15 +168,18 @@ const getQrCode = async (req, res) => {
 
 const configureFirewall = async (req, res) => {
   try {
-    const scriptPath = path.join(os.tmpdir(), 'configurar-firewall.bat');
-
-    if (!fs.existsSync(scriptPath)) {
-      const scriptContent = `@echo off\r\n:: Check for administrative privileges\r\nnet session >nul 2>&1\r\nif %errorLevel% == 0 (\r\n    echo [INFO] Ejecutando como administrador...\r\n) else (\r\n    echo [ERROR] Por favor, ejecuta este archivo como Administrador.\r\n    echo Haz clic derecho sobre este archivo y selecciona "Ejecutar como administrador".\r\n    pause\r\n    exit /b\r\n)\r\n\r\necho [INFO] Configurando reglas de Firewall de Windows para BodegApp...\r\npowershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 53050-53060 -Description 'Permite conexion en red local para el sistema POS de BodegApp' -ErrorAction SilentlyContinue"\r\n\r\necho [SUCCESS] Reglas de firewall configuradas con exito.\r\necho Ya puedes cerrar esta ventana.\r\npause\r\n`;
-      fs.writeFileSync(scriptPath, scriptContent, 'utf-8');
+    // Solo se abre el ÚNICO puerto en uso (no un rango) y solo bajo acción explícita del usuario.
+    const port = parseInt(req.body && req.body.port, 10) || global.dynamicPort || 53050;
+    if (port < 1024 || port > 65535) {
+      return res.status(400).json({ success: false, error: 'Puerto inválido.' });
     }
 
+    const scriptPath = path.join(os.tmpdir(), `bodegapp-firewall-${port}.bat`);
+    const scriptContent = `@echo off\r\n:: Check for administrative privileges\r\nnet session >nul 2>&1\r\nif %errorLevel% == 0 (\r\n    echo [INFO] Ejecutando como administrador...\r\n) else (\r\n    echo [ERROR] Por favor, ejecuta este archivo como Administrador.\r\n    pause\r\n    exit /b\r\n)\r\n\r\necho [INFO] Abriendo el puerto ${port} para BodegApp (solo red local)...\r\npowershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port} -Profile Private -Description 'Permite conexion en red local para BodegApp' -ErrorAction SilentlyContinue"\r\n\r\necho [SUCCESS] Regla de firewall creada para el puerto ${port}.\r\necho Ya puedes cerrar esta ventana.\r\npause\r\n`;
+    fs.writeFileSync(scriptPath, scriptContent, 'utf-8');
+
     const runCommand = `Start-Process -FilePath "${scriptPath}" -Verb RunAs`;
-    
+
     const { exec } = require('child_process');
     await new Promise((resolve) => {
       exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${runCommand.replace(/"/g, '\\"')}"`, (error) => {
@@ -169,7 +187,7 @@ const configureFirewall = async (req, res) => {
           console.error('Error al ejecutar el script de firewall:', error);
           res.status(500).json({ success: false, error: 'No se pudo iniciar el proceso de elevación.' });
         } else {
-          res.json({ success: true, message: 'Se ha abierto una ventana de consola solicitando permisos de administrador.' });
+          res.json({ success: true, message: `Se solicitó permiso de administrador para abrir el puerto ${port}.` });
         }
         resolve();
       });
@@ -180,11 +198,32 @@ const configureFirewall = async (req, res) => {
   }
 };
 
+// Estado del modo LAN.
+const getLanStatus = (req, res) => {
+  res.json({ success: true, lanEnabled: isLanEnabled() });
+};
+
+// Activar/desactivar el modo LAN (requiere reiniciar para reenlazar el puerto).
+const setLanMode = (req, res) => {
+  const enabled = !!(req.body && req.body.enabled);
+  saveNetworkConfig({ lanEnabled: enabled });
+  res.json({
+    success: true,
+    lanEnabled: enabled,
+    requiresRestart: true,
+    message: enabled
+      ? 'Modo LAN activado. Reinicia BodegApp para aplicar. Recuerda escanear el QR desde el móvil.'
+      : 'Modo LAN desactivado. Reinicia BodegApp para dejar de escuchar en la red.',
+  });
+};
+
 module.exports = {
   getLocalIp,
   getQrCode,
   downloadUpdate,
   getDownloadProgress,
   executeUpdate,
-  configureFirewall
+  configureFirewall,
+  getLanStatus,
+  setLanMode
 };
