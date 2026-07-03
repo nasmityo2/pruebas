@@ -388,9 +388,19 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.3 — network.json firmado
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-network`. **Tests:** 85/85 verde.
+
+- `network.json` (controla el modo LAN) ahora se FIRMA con HMAC (secreto del cliente). Editarlo
+  a mano para poner `lanEnabled=true` ya no funciona: si la firma no valida, se ignora y se cae
+  a `false` (fail-safe). `saveNetworkConfig` re-firma al togglear. Test añadido.
+
+---
+
 ## Resumen de la sesión
 
-- **Suite de tests:** 84/84 verde (arrancó en 36; +48 nuevos).
+- **Suite de tests:** 85/85 verde (arrancó en 36; +49 nuevos).
 - **`npm run check:secrets`:** limpio.
 - **Módulos de seguridad nuevos** (`src/security/`): `clock`, `token`, `offline`, `hwid`,
   `resourceCrypto`, `watermark`, `updateVerify`, `integrity` — todos con tests puros.
