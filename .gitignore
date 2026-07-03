@@ -38,6 +38,10 @@ build/
 # ==== Salida generada de Tailwind ====
 public/css/output.css
 
+# ==== Artefactos de build (Fase 11.8 / 13) ====
+integrity-manifest.json
+integrity-manifest.json.sig
+
 # ==== Logs y temporales ====
 *.log
 startup_error.log

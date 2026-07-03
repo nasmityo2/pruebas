@@ -465,9 +465,9 @@ function deriveResourceKey(hwid, tokenPayload) {
 
 ### 11.8 Self-check de integridad en runtime
 
-- [ ]  🟠 Generar en el build un manifiesto firmado con el **hash SHA-256** de los archivos/recursos críticos (o del `app.asar`).
-- [ ]  🟠 Al iniciar (solo en producción), recalcular hashes y compararlos con el manifiesto firmado (verificado con la clave pública). Si no coincide → la app se bloquea (posible manipulación).
-- [ ]  🟡 Gatear este chequeo por entorno: **desactivado en desarrollo**, activo en el build de distribución.
+- [x]  🟠 Generar en el build un manifiesto firmado con el **hash SHA-256** de los archivos/recursos críticos (o del `app.asar`). *(`scripts/gen-integrity-manifest.js`: hashea los archivos críticos + `src/security/*` y firma el manifiesto con la clave privada.)*
+- [x]  🟠 Al iniciar (solo en producción), recalcular hashes y compararlos con el manifiesto firmado (verificado con la clave pública). Si no coincide → la app se bloquea (posible manipulación). *(`src/security/integrity.js` `runSelfCheck` + wiring en `main.js` bajo `app.isPackaged`; 4 tests.)*
+- [x]  🟡 Gatear este chequeo por entorno: **desactivado en desarrollo**, activo en el build de distribución. *(Solo corre si `app.isPackaged`.)*
 
 **Criterio:** modificar cualquier archivo empaquetado hace que la app detecte la manipulación y se bloquee, en producción.
 

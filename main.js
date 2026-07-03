@@ -410,6 +410,27 @@ try {
   app.whenReady().then(async () => {
     logError('App ready. Iniciando migraciones...');
     try {
+      // Fase 11.8: self-check de integridad SOLO en el build empaquetado (producción).
+      // Si algún archivo crítico fue manipulado o falta la firma válida, se bloquea.
+      if (app.isPackaged) {
+        try {
+          const integrity = require('./src/security/integrity');
+          const { getPublicKey } = require('./src/utils/license');
+          const result = integrity.runSelfCheck({ baseDir: __dirname, publicKey: getPublicKey() });
+          if (!result.ok) {
+            logError(`[INTEGRITY] Self-check FALLÓ: ${result.reason} ${JSON.stringify(result.mismatches || [])}`);
+            dialog.showErrorBox('BodegApp - Integridad', 'Se detectó una modificación no autorizada de la aplicación. Reinstala desde el instalador original.');
+            app.quit();
+            return;
+          }
+          logError('[INTEGRITY] Self-check OK.');
+        } catch (e) {
+          logError(`[INTEGRITY] Error en self-check: ${e.message}`);
+          dialog.showErrorBox('BodegApp - Integridad', 'No se pudo verificar la integridad de la aplicación.');
+          app.quit();
+          return;
+        }
+      }
       await migrateFromProgramData();
       logError('Migraciones completadas.');
       setupIpcHandlers();
