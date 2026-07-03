@@ -301,3 +301,30 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   min; se invoca en `app.on('before-quit')` (A.6, evita fuga de timers).
 
 ---
+
+## Fase 13 — Blindaje final (preparado; ejecución en release)
+
+**Estado:** 🟡 Preparado (tooling listo). **Rama:** `fase-13-prep`.
+
+- `scripts/apply-fuses.js` (Electron Fuses) y `scripts/gen-integrity-manifest.js` listos;
+  `scripts/sign-update.js` (Fase 12) también. `docs/DISTRIBUCION.md` §6 documenta el pipeline
+  completo de release blindado (fuses + bytenode + ofuscación + firma + verificación en Win7).
+- `forge.config.js`/`packaging-ignore.js` ya excluyen `.env`/`.key`/`.pem`/`scratch`/
+  `license-server`; el guard anti-secretos pasa.
+
+- **BLOQUEO (documentado en `docs/BLOQUEOS.md`):** bytenode (13.2), ofuscación (13.3) y la
+  verificación del build blindado en **Windows 7 / ia32** (13.5) requieren el entorno de
+  release (Electron 22 ia32 + VM Win7) y, por diseño del plan, NO se ejecutan en desarrollo.
+  Todo el tooling queda listo para correrlos en esa máquina.
+
+---
+
+## Resumen de la sesión
+
+- **Suite de tests:** 83/83 verde (arrancó en 36; +47 nuevos).
+- **`npm run check:secrets`:** limpio.
+- **Módulos de seguridad nuevos** (`src/security/`): `clock`, `token`, `offline`, `hwid`,
+  `resourceCrypto`, `watermark`, `updateVerify`, `integrity` — todos con tests puros.
+- **Fases cerradas o muy avanzadas:** 14 (nueva, bypass crítico), 2 (refuerzos), 5 (items
+  abiertos), 8 (XSS parcial), 11.1–11.9 (salvo integración GUI de 11.6/11.7), 12, 13 (preparado).
+- **Diferido a GUI/release:** ver `docs/BLOQUEOS.md`.
