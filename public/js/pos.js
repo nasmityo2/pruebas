@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/settings/rates');
       if (!response.ok) throw new Error('No se pudieron cargar las tasas');
       currentRates = await response.json();
-      console.log('Tasas cargadas:', currentRates);
+      console.log('Tasas cargadas:', JSON.stringify(currentRates));
 
       // Update POS Header Display
       const posBcvValue = document.getElementById('pos-bcv-value');
