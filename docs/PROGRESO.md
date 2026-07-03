@@ -271,3 +271,21 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 - `integrity-manifest.json(.sig)` añadidos a `.gitignore` (artefacto de build).
 
 ---
+
+## Anexo A A.9 / B.H — Build y dependencias (lote seguro)
+
+**Estado:** ✅ Lote seguro completado. **Rama:** `fase-build-deps`. **Tests:** 83/83 verde.
+
+- Verificado que `scripts/packaging-ignore.js` (usado por forge y por el guard) YA excluye
+  `.env`/`.env.*`, `.key`, `.pem` y `scratch/` → A.9 🔴 y el PDF de `scratch/` cubiertos.
+- Eliminadas dependencias muertas `consulta-dolar-venezuela` y `dir-compare` (sin `require`
+  en ningún lado). `npm run check:secrets` sigue limpio; suite 83/83.
+- Creado `docs/BLOQUEOS.md` con el trabajo diferido (GUI/runtime Electron y Fase 13 de
+  release), con motivos.
+
+- **DECISIÓN:** `jsonwebtoken` se mantiene en el `package.json` raíz porque el `license-server`
+  (sin `node_modules` propio) lo resuelve desde el compartido; se separará al dividir repos
+  (Fase 10). `xlsx` (CVE), unificar CSV, subir `axios`, quitar `maker-squirrel` → diferidos a
+  una sesión con GUI (ver BLOQUEOS.md).
+
+---
