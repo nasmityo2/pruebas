@@ -157,3 +157,21 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   se dejan preparados en el token pero su implementación cliente queda para Fase 11.5/11.6.
 
 ---
+
+## Fase 11.1 + 11.2 — Aislar seguridad + anti-rollback de reloj
+
+**Estado:** ✅ Núcleo completado. **Rama:** `fase-11-2-clock`. **Tests:** 55/55 verde.
+
+- Creada carpeta `src/security/` con `clock.js` (lógica PURA de anti-rollback), API con
+  strings literales (obfuscation-safe). 6 tests unitarios.
+- Integrado en `src/utils/license.js`:
+  - `saveLicenseCache` guarda un sello monotónico `lastSeenEpoch = max(previo, ahora)`.
+  - `getCachedPayload` invalida la caché si el reloj se atrasó por debajo de
+    `lastSeenEpoch - 24h` (tolerancia por husos) → fuerza re-verificación online.
+- Creado `docs/SEGURIDAD-CLIENTE.md` con la lista blanca de módulos sensibles (Fase 13).
+
+- **DECISIÓN:** la 2ª ubicación de `lastSeenEpoch` (registro de Windows) y el log de
+  auditoría del evento se difieren: requieren entorno Windows/GUI para validar. La función
+  `clock.maxLastSeen` ya está lista para combinar múltiples fuentes cuando se implemente.
+
+---
