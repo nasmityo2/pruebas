@@ -12,6 +12,7 @@ const { machineIdSync } = require('node-machine-id');
 const { getDataBasePath } = require('./settings');
 const { HIST_SECRET } = require('../config');
 const clock = require('../security/clock');
+const replay = require('../security/token');
 
 // Llave pública NUEVA (rotada en Fase 1). Solo verifica firmas; nunca puede firmar.
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -123,8 +124,18 @@ function saveLicenseCache(obj) {
     // Fase 11.2: sello de tiempo MONOTÓNICO. Se guarda el mayor epoch visto (arranques y
     // heartbeats exitosos). Atrasar el reloj luego NO extiende licencia/trial (ver getCachedPayload).
     const now = Math.floor(Date.now() / 1000);
-    const prev = (() => { try { const c = readLicenseCache(); return c && c.lastSeenEpoch; } catch (_) { return 0; } })();
-    const toStore = { ...obj, lastSeenEpoch: clock.nextLastSeen({ now, lastSeenEpoch: prev || 0 }) };
+    const prevCache = (() => { try { return readLicenseCache(); } catch (_) { return null; } })();
+    const prevSeen = (prevCache && prevCache.lastSeenEpoch) || 0;
+    const prevIat = (prevCache && prevCache.lastAcceptedIat) || 0;
+    // Fase 11.5: registrar el mayor `iat` aceptado (anti-replay). El token guardado no puede
+    // ser más viejo que el último aceptado.
+    let tokenIat = 0;
+    try { const p = verifyToken(obj.token); if (p && Number.isFinite(p.iat)) tokenIat = p.iat; } catch (_) { /* noop */ }
+    const toStore = {
+      ...obj,
+      lastSeenEpoch: clock.nextLastSeen({ now, lastSeenEpoch: prevSeen }),
+      lastAcceptedIat: replay.nextAcceptedIat({ incomingIat: tokenIat, lastAcceptedIat: prevIat }),
+    };
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', cacheKey(), iv);
     const plaintext = Buffer.from(JSON.stringify(toStore), 'utf8');
@@ -177,7 +188,14 @@ function getCachedPayload() {
   if (clock.isClockRolledBack({ now, lastSeenEpoch: cache.lastSeenEpoch || 0 })) {
     return null;
   }
-  return verifyToken(cache.token);
+  const payload = verifyToken(cache.token);
+  if (!payload) return null;
+  // Fase 11.5: rechazar un token cacheado más viejo que el último aceptado (posible
+  // re-inyección de un token capturado). El token legítimo más reciente nunca es replay.
+  if (replay.isReplay({ incomingIat: payload.iat, lastAcceptedIat: cache.lastAcceptedIat || 0 })) {
+    return null;
+  }
+  return payload;
 }
 
 function getAppStatus() {

@@ -175,3 +175,15 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   `clock.maxLastSeen` ya está lista para combinar múltiples fuentes cuando se implemente.
 
 ---
+
+## Fase 11.5 — Anti-replay del token
+
+**Estado:** ✅ Completada. **Rama:** `fase-11-5-replay`. **Tests:** 60/60 verde.
+
+- Nuevo `src/security/token.js` (puro): `isReplay` / `nextAcceptedIat`. 5 tests.
+- `src/utils/license.js`: `saveLicenseCache` persiste `lastAcceptedIat` monotónico (del
+  `iat` del token guardado); `getCachedPayload` rechaza un token cacheado con `iat` menor
+  al último aceptado (re-inyección de token viejo).
+- Combinado con el `jti`/`iat` que ya emite el servidor (Fase 2 refuerzo).
+
+---
