@@ -361,6 +361,22 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.2/A.3 — Hardening adicional (uploads, panel XSS, JSON atómico)
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-hardening`. **Tests:** 84/84 verde.
+
+- `parseMultipartUpload`: whitelist de extensiones por campo (imágenes para logo/imagen;
+  xlsx/xls/csv para import); rechaza el resto. Con el límite de tamaño de multipart (20MB).
+- Panel `admin.html`: escape anti-XSS (`esc()`) de `key`/`notas`/`equipo`/`hwid`/`plan`/
+  `estado` — el vector entraba por el `systemName` no autenticado de `/activate`.
+- `saveJson` del servidor: escritura atómica (temp + rename) → sin corrupción por corte.
+
+- **DECISIÓN:** mover el JWT del panel fuera de `localStorage` y HTTPS del servidor se harán al
+  migrar el panel/servidor al VPS. `print/remote` mantiene solo el gate de token LAN (añadir
+  auth adicional rompería la impresión desde el móvil). Ver `docs/BLOQUEOS.md`.
+
+---
+
 ## Resumen de la sesión
 
 - **Suite de tests:** 84/84 verde (arrancó en 36; +48 nuevos).

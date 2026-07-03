@@ -210,7 +210,7 @@
                 $('createMsg').classList.add('ok');
                 const list = $('createdList');
                 list.classList.remove('hidden');
-                list.innerHTML = data.licenses.map(l => `<div class="key">${l.key}</div>`).join('');
+                list.innerHTML = data.licenses.map(l => `<div class="key">${esc(l.key)}</div>`).join('');
                 loadLicenses();
             } else {
                 $('createMsg').textContent = data.error || 'Error al generar';
@@ -218,9 +218,16 @@
             }
         });
 
+        // A.2: escape anti-XSS. `equipo`/`notas`/`hwid` provienen (parcialmente) del cliente no
+        // autenticado (systemName de /activate); sin escapar serían XSS almacenado en el panel.
+        function esc(v) {
+            if (v === null || v === undefined) return '';
+            return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         function estadoPill(estado) {
             const cls = estado === 'activa' ? 'activa' : estado === 'revocada' ? 'revocada' : 'pendiente';
-            return `<span class="pill ${cls}">${estado}</span>`;
+            return `<span class="pill ${cls}">${esc(estado)}</span>`;
         }
 
         function rowActions(l) {
@@ -242,10 +249,10 @@
             if (!data.licenses.length) { tbody.innerHTML = `<tr><td colspan="6" class="muted">Sin resultados</td></tr>`; return; }
             tbody.innerHTML = data.licenses.map(l => `
                 <tr>
-                    <td class="key">${l.key}<div class="muted">${l.notas || ''}</div></td>
+                    <td class="key">${esc(l.key)}<div class="muted">${esc(l.notas || '')}</div></td>
                     <td>${estadoPill(l.estado)}</td>
-                    <td>${l.plan || ''}</td>
-                    <td>${l.equipo || '<span class="muted">—</span>'}<div class="muted key" style="font-size:.65rem;">${l.hwid ? l.hwid.substring(0, 24) + '…' : ''}</div></td>
+                    <td>${esc(l.plan || '')}</td>
+                    <td>${l.equipo ? esc(l.equipo) : '<span class="muted">—</span>'}<div class="muted key" style="font-size:.65rem;">${l.hwid ? esc(l.hwid.substring(0, 24)) + '…' : ''}</div></td>
                     <td>${l.fechaExpiracion ? new Date(l.fechaExpiracion).toLocaleDateString() : '<span class="muted">nunca</span>'}</td>
                     <td>${rowActions(l)}</td>
                 </tr>`).join('');
