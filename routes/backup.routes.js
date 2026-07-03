@@ -137,6 +137,7 @@ router.get('/cloud/status', async (req, res) => {
  * Guarda el token Cloud en business-settings.json para respaldos automáticos
  */
 router.post('/cloud/save-token', async (req, res) => {
+    if (!ensureUnlocked(req, res)) return; // guardar credencial de nube exige clave admin (A.3)
     const { token } = req.body;
 
     if (!token) {
@@ -171,6 +172,7 @@ router.post('/cloud/save-token', async (req, res) => {
  * Elimina el token Cloud de business-settings.json
  */
 router.delete('/cloud/remove-token', async (req, res) => {
+    if (!ensureUnlocked(req, res)) return; // eliminar credencial de nube exige clave admin (A.3)
     try {
         const { getDataBasePath } = require('../src/utils/settings');
         const settingsPath = require('path').join(getDataBasePath(), 'business-settings.json');
