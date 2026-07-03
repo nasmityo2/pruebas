@@ -203,3 +203,20 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   validar en runtime/GUI); la distinción offline vs revoked/expired ya existía en `heartbeat()`.
 
 ---
+
+## Fase 11.4 — HWID robusto (sin archivo portátil)
+
+**Estado:** ✅ Completada. **Rama:** `fase-11-4-hwid`. **Tests:** 70/70 verde.
+
+- Nuevo `src/security/hwid.js`: HWID multi-señal (machineId, MachineGuid, serial de
+  placa/BIOS, serial de volumen del sistema, CPU, platform-arch) hasheado con SHA-256.
+  `combineSignals` es puro (6 tests, incl. fail-safe y descarte de placeholders OEM).
+- Eliminado el fallback portátil `device.id` en texto plano (cierra A.1 🔴): si no hay
+  señal fuerte, `getHardwareId()` devuelve null → el cliente no puede activar/validar
+  (fail-safe) en vez de fabricar un ID copiable entre equipos.
+- `PUBLIC_KEY` del cliente ya no es un bloque PEM literal: se guarda en base64 y se
+  decodifica en runtime (obfuscation-safe; la ofuscación fuerte llega en Fase 13).
+- El test `clientLicense` sigue verde: `getHardwareId()` real (WMI/registro en Windows) +
+  clave pública decodificada validan un token firmado de extremo a extremo.
+
+---
