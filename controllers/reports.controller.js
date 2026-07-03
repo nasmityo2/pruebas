@@ -67,6 +67,7 @@ const getSalesByDateRangeStmt = db.prepare(`
         FROM abonos a
         LEFT JOIN ventas v_abono ON a.venta_id = v_abono.id
         WHERE a.venta_id = v.id
+          AND COALESCE(a.anulado, 0) = 0
           AND (v_abono.id IS NULL OR v_abono.estado_pago != 'ANULADO')
       ) AS total_abonos_ves
 
@@ -130,6 +131,7 @@ v.id,
       FROM abonos a 
       LEFT JOIN ventas v_abono ON a.venta_id = v_abono.id
       WHERE a.venta_id = v.id 
+        AND COALESCE(a.anulado, 0) = 0
         AND (v_abono.id IS NULL OR v_abono.estado_pago != 'ANULADO')
     ) AS total_abonos_ves
   FROM ventas v
@@ -156,6 +158,7 @@ FROM abonos a
 LEFT JOIN clientes c ON a.cliente_id = c.id
 LEFT JOIN ventas v ON a.venta_id = v.id
 WHERE date(a.fecha) BETWEEN date(?) AND date(?)
+  AND COALESCE(a.anulado, 0) = 0
   AND (v.id IS NULL OR v.estado_pago != 'ANULADO')
 ORDER BY a.fecha ASC, a.id ASC
 `);
@@ -187,9 +190,14 @@ const deleteSalePaymentsStmt = db.prepare(`
   WHERE venta_id = ?
   `);
 
-const deleteSaleAbonosStmt = db.prepare(`
-  DELETE FROM abonos
-  WHERE venta_id = ?
+// Regla global "NO borrar físicamente abonos": al anular una venta, sus abonos se ANULAN
+// (soft-delete), no se borran. Los reportes/cierre filtran `COALESCE(anulado,0)=0`.
+const voidSaleAbonosStmt = db.prepare(`
+  UPDATE abonos
+  SET anulado = 1,
+      anulado_en = datetime('now','localtime'),
+      motivo_anulacion = COALESCE(motivo_anulacion, 'Venta anulada')
+  WHERE venta_id = ? AND COALESCE(anulado,0) = 0
   `);
 
 // ---------------- PAGOS DEL DÍA (POS + COBRANZA) ----------------
@@ -234,6 +242,7 @@ const getPaymentsSummarySinceStmt = db.prepare(`
     LEFT JOIN ventas v ON a.venta_id = v.id
     LEFT JOIN metodos_pago mp ON a.metodo = mp.key
     WHERE datetime(a.fecha) > datetime(?)
+      AND COALESCE(a.anulado, 0) = 0
       AND (v.id IS NULL OR v.estado_pago != 'ANULADO')
     GROUP BY a.metodo
   ) AS combined
@@ -409,6 +418,7 @@ const getTodayDashboardStatsStmt_Abonos = db.prepare(`
   FROM abonos a
   LEFT JOIN ventas v ON a.venta_id = v.id
   WHERE date(a.fecha) = date('now', 'localtime')
+    AND COALESCE(a.anulado, 0) = 0
     AND (v.id IS NULL OR v.estado_pago != 'ANULADO')
 `);
 
@@ -732,9 +742,9 @@ const voidSaleTransaction = db.transaction((saleId) => {
   const pResult = deleteSalePaymentsStmt.run(id);
   console.log(`[VOID] Pagos POS eliminados: ${pResult.changes}`);
 
-  // 3) Borrar TODOS los abonos de esa venta (cobranza)
-  const aResult = deleteSaleAbonosStmt.run(id);
-  console.log(`[VOID] Abonos eliminados: ${aResult.changes}`);
+  // 3) ANULAR (soft-delete) los abonos de esa venta (cobranza); no se borran físicamente.
+  const aResult = voidSaleAbonosStmt.run(id);
+  console.log(`[VOID] Abonos anulados (soft-delete): ${aResult.changes}`);
 
   // 4) Marcar venta como ANULADA y sin pendiente
   voidSaleStmt.run(id);

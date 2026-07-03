@@ -33,6 +33,10 @@ pasa. Estas tareas requieren un entorno que aquí no está disponible.
   server-side desde el carrito, `force_settle`, cierre Z antes del PDF, PDFs con tasa
   histórica): son money-critical; el plan pide no refactorizar sin poder validar en la GUI.
 - **B.G / A.7 — XSS restantes** (ver Fase 8 arriba).
+- **A.4 — `venta_pagos` a soft-delete.** Al anular una venta, `venta_pagos` se sigue
+  borrando físicamente (no tiene columna `anulado`; el recálculo corta en `ANULADO` y los
+  reportes filtran por estado de venta, así que no descuadra). Migrar a soft-delete exige
+  columna nueva + filtros en recálculo/reportes y validación en GUI.
 - **B.H / A.9 — dependencias**: migrar `xlsx` a la build de SheetJS, unificar `fast-csv`/
   `csv-parser`, subir `axios`, quitar `maker-squirrel`: requieren revalidar import/export y
   el flujo de updates en runtime.

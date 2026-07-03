@@ -334,6 +334,23 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.4 — Lote 3 (abonos anulados en reportes)
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-abonos-reportes`.
+
+- Consecuencia de pasar `voidPayment` a soft-delete: los abonos anulados AHORA permanecen en
+  la tabla, así que TODAS las consultas de reportes/cierre/dashboard que suman abonos deben
+  excluirlos. Añadido `AND COALESCE(a.anulado,0)=0` a las 5 consultas de `reports.controller`.
+- `voidSale` ahora ANULA (soft-delete) los abonos de la venta en vez de borrarlos físicamente
+  (respeta la regla global y preserva histórico).
+
+- **DECISIÓN:** `venta_pagos` de una venta anulada se siguen borrando físicamente en `voidSale`
+  (no tienen columna `anulado` y el recálculo corta en `ANULADO`, así que no descuadran). Migrar
+  `venta_pagos` a soft-delete requiere columna nueva + filtros en recálculo/reportes y validación
+  GUI; registrado como diferido en `docs/BLOQUEOS.md`.
+
+---
+
 ## Resumen de la sesión
 
 - **Suite de tests:** 83/83 verde (arrancó en 36; +47 nuevos).
