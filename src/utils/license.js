@@ -7,72 +7,29 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-const { machineIdSync } = require('node-machine-id');
 const { getDataBasePath } = require('./settings');
 const { HIST_SECRET } = require('../config');
 const clock = require('../security/clock');
 const replay = require('../security/token');
 const offline = require('../security/offline');
+const hwidModule = require('../security/hwid');
 
 // Llave pública NUEVA (rotada en Fase 1). Solo verifica firmas; nunca puede firmar.
-const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0qrVjADUXRw3dZ0+Ktvg
-hnmmcUzp0VSzAzJxFA4ieMjU8aYi2WgUqab5A1aR9jcUL+CdxJY+4Sa7HyV0QB82
-3rKsNhfaNQEBh4b2tijGW4v9cCdQKvydMYYyLhpixCEq3m0KaBA5HUSQdhYdznJS
-Pt4Dl6jiVkTG5qCAu7xz73bKn9eC6uisbtSEtu/DjyYG6sGiKcdrLi14crbSwoNC
-vs5Z8fgEPutlTV9+mgMEZY8HvEKQzhxHWdjuBbiOvL44K3bBrw5dB2Uwhi1k0uO/
-I+frlnmNcVgHSo/qQ98cG5MTbu6NlN0WP1ckiH8cISp16hMEa5TUMYqVC5fFT+LK
-uwIDAQAB
------END PUBLIC KEY-----`;
+// Fase 11.4 (🟡 obfuscation-safe): NO se deja como bloque PEM literal evidente; se guarda
+// codificada (base64) y se reconstruye en runtime. No es secreto (es pública), pero
+// dificulta el análisis/parcheo automatizado que busca el marcador "BEGIN PUBLIC KEY".
+const _pkEnc = 'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUEwcXJWakFEVVhSdzNkWjArS3R2Zwpobm1tY1V6cDBWU3pBekp4RkE0aWVNalU4YVlpMldnVXFhYjVBMWFSOWpjVUwrQ2R4SlkrNFNhN0h5VjBRQjgyCjNyS3NOaGZhTlFFQmg0YjJ0aWpHVzR2OWNDZFFLdnlkTVlZeUxocGl4Q0VxM20wS2FCQTVIVVNRZGhZZHpuSlMKUHQ0RGw2amlWa1RHNXFDQXU3eHo3M2JLbjllQzZ1aXNidFNFdHUvRGp5WUc2c0dpS2NkckxpMTRjcmJTd29OQwp2czVaOGZnRVB1dGxUVjkrbWdNRVpZOEh2RUtRemh4SFdkanVCYmlPdkw0NEszYkJydzVkQjJVd2hpMWswdU8vCkkrZnJsbm1OY1ZnSFNvL3FROThjRzVNVGJ1Nk5sTjBXUDFja2lIOGNJU3AxNmhNRWE1VFVNWXFWQzVmRlQrTEsKdXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t';
+const PUBLIC_KEY = Buffer.from(_pkEnc, 'base64').toString('utf8');
 
 // ------------------------------------------------------------------
-// HWID (huella del equipo). Un único identificador canónico y estable.
+// HWID (huella del equipo). Fase 11.4: múltiples señales del SO, SIN archivo portátil.
+// Si no hay ninguna señal fuerte, getHardwareId devuelve null (fail-safe): el cliente
+// no puede activar/validar y debe pedir activación online, en vez de fabricar un ID copiable.
 // ------------------------------------------------------------------
-const FALLBACK_ID_FILE = 'device.id';
-
-function getFallbackHardwareId() {
-  try {
-    const filePath = path.join(getDataBasePath(), FALLBACK_ID_FILE);
-    if (fs.existsSync(filePath)) return fs.readFileSync(filePath, 'utf8').trim();
-    const newId = crypto.randomUUID();
-    fs.writeFileSync(filePath, newId, 'utf8');
-    return newId;
-  } catch (e) {
-    return 'error-fallback-id';
-  }
-}
-
 let cachedHwid = null;
 function getHardwareId() {
   if (cachedHwid) return cachedHwid;
-  let baseId = '';
-  try {
-    baseId = machineIdSync({ original: true });
-  } catch (e) {
-    baseId = getFallbackHardwareId();
-  }
-  let extra = '';
-  try {
-    const cpus = os.cpus();
-    if (cpus && cpus.length > 0) extra += cpus[0].model;
-    if (process.platform === 'win32') {
-      try {
-        const { execSync } = require('child_process');
-        let serial = '';
-        try {
-          serial = execSync('powershell -NoProfile -NonInteractive -Command "(Get-WmiObject Win32_BaseBoard).SerialNumber"', { encoding: 'utf8', timeout: 5000 }).trim();
-        } catch (_) {
-          try {
-            serial = execSync('powershell -NoProfile -NonInteractive -Command "(Get-WmiObject Win32_BIOS).SerialNumber"', { encoding: 'utf8', timeout: 5000 }).trim();
-          } catch (_) { /* noop */ }
-        }
-        if (serial && serial !== 'To be filled by O.E.M.' && serial.length > 2) extra += serial;
-      } catch (_) { /* noop */ }
-    }
-  } catch (_) { /* noop */ }
-
-  cachedHwid = crypto.createHash('sha256').update(baseId + extra).digest('hex');
+  cachedHwid = hwidModule.computeHardwareId(); // hash hex de 64 chars, o null
   return cachedHwid;
 }
 
