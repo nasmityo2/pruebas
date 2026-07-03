@@ -40,43 +40,23 @@ const updateRates = async (req, res) => {
       return res.status(400).json({ error: 'Método de cálculo inválido.' });
     }
 
-    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(fBCV, 'BCV');
-    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(fPARALELO, 'PARALELO');
-    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(fCOP, 'COP');
-    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(iCALC, 'CALC_METHOD');
-
-    // Upsert IVA
-    const existingIva = db.prepare("SELECT 1 FROM settings WHERE key = 'IVA_PERCENTAGE'").get();
-    if (existingIva) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(fIVA, 'IVA_PERCENTAGE');
-    } else {
-      db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run('IVA_PERCENTAGE', fIVA);
-    }
-
-    // Upsert IVA_MODE
-    const existingIvaMode = db.prepare("SELECT 1 FROM settings WHERE key = 'IVA_MODE'").get();
-    if (existingIvaMode) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(sIVA_MODE, 'IVA_MODE');
-    } else {
-      db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run('IVA_MODE', sIVA_MODE);
-    }
-
-    // Upsert AUTO_BCV
-    const existing = db.prepare("SELECT 1 FROM settings WHERE key = 'AUTO_BCV'").get();
-    if (existing) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(bAUTO, 'AUTO_BCV');
-    } else {
-      db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run('AUTO_BCV', bAUTO);
-    }
-
-    // Upsert ENABLE_CASHEA
     const bCASHEA = (ENABLE_CASHEA === true || ENABLE_CASHEA === 'true' || ENABLE_CASHEA === 1 || ENABLE_CASHEA === '1') ? 1 : 0;
-    const existingCashea = db.prepare("SELECT 1 FROM settings WHERE key = 'ENABLE_CASHEA'").get();
-    if (existingCashea) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(bCASHEA, 'ENABLE_CASHEA');
-    } else {
-      db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run('ENABLE_CASHEA', bCASHEA);
-    }
+
+    // Anexo A A.4 / B.D: TODAS las escrituras de tasas/ajustes van en UNA transacción.
+    // Un fallo intermedio ya no deja las tasas a medias (todo o nada). El fetch async de BCV
+    // (updateBCVRate) va DESPUÉS, fuera de la transacción (better-sqlite3 es síncrono).
+    const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (@k, @v) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+    const applyRates = db.transaction(() => {
+      upsert.run({ k: 'BCV', v: fBCV });
+      upsert.run({ k: 'PARALELO', v: fPARALELO });
+      upsert.run({ k: 'COP', v: fCOP });
+      upsert.run({ k: 'CALC_METHOD', v: iCALC });
+      upsert.run({ k: 'IVA_PERCENTAGE', v: fIVA });
+      upsert.run({ k: 'IVA_MODE', v: sIVA_MODE });
+      upsert.run({ k: 'AUTO_BCV', v: bAUTO });
+      upsert.run({ k: 'ENABLE_CASHEA', v: bCASHEA });
+    });
+    applyRates();
 
     // Trigger immediate update if enabled
     let updatedMessage = 'Tasas y configuración actualizadas con éxito';

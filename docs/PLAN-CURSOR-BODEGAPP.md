@@ -733,7 +733,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟠 Cierre Z: `insertClosureStmt` / `insertCierreZHistoryStmt` se ejecutan **antes** de generar el PDF; si el PDF falla, el cierre queda registrado y el saldo se resetea igual. — `controllers/reports.controller.js:1645-1710`
 - [ ]  🟠 Consultas de abonos en reportes/cierre no filtran `COALESCE(a.anulado,0)=0` (a diferencia de `getAbonosBySaleIdStmt`), así abonos anulados podrían contar. — `controllers/reports.controller.js:62-69,142-158,221-236`
 - [ ]  🟠 Al anular venta, `restoreStockStmt.run(...)` no verifica que el producto siga activo; si fue soft-deleted, el stock no se restaura. — `controllers/reports.controller.js:725-726`
-- [ ]  🟠 `updateRates()` hace 6+ UPDATE/INSERT sin `db.transaction()`; un fallo intermedio deja tasas a medias. — `controllers/settings.controller.js:41-77`
+- [x]  🟠 `updateRates()` hace 6+ UPDATE/INSERT sin `db.transaction()`; un fallo intermedio deja tasas a medias. — `controllers/settings.controller.js:41-77` *(Corregido: todas las escrituras van en una `db.transaction()` con upsert; el fetch async de BCV queda fuera.)*
 - [ ]  🟡 PDFs de rango/fiados convierten a USD con `getBcvRate()` **actual** en vez de la tasa histórica de cada venta → totales en $ incorrectos si cambió BCV. — `controllers/reports.controller.js:1152-1164,2480-2487`
 - [ ]  🟡 (verificar) Venta con `estado_pago === 'PAGADO'` pero pendiente > 0.01: se advierte pero no se corrige el estado en BD. — `controllers/sales.controller.js:300-305`
 - [ ]  🟡 Cashea: `PagarCuota()` y `createCasheaVenta()` sin transacción ni validación de existencia/duplicados de la cuota/venta. — `controllers/cashea.controller.js:5-37,71-92`
@@ -761,7 +761,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [x]  🔵 `routes/rapikom.routes.js` nunca se registra con `registerExpressRouter` → sus rutas están muertas. — *(Fase 7: rapikom y temp_advance eliminados por completo.)*
 - [ ]  🔵 DDL como side-effect al cargar el módulo: `db.exec('CREATE TABLE IF NOT EXISTS cierres_z ...')`. — `controllers/reports.controller.js:316-329`
 - [ ]  🔵 `cloudBackup.js` copia SQLite en caliente con `fs.copyFileSync` (sin `.backup()`/checkpoint WAL) y reutiliza el mismo `FormData` en reintentos (stream ya consumido). — `src/utils/cloudBackup.js:46-48,96-144`
-- [ ]  🔵 `bcvUpdater.startScheduler()` usa `setInterval` sin `clearInterval` al cerrar la app. — `src/services/bcvUpdater.js:182-184`
+- [x]  🔵 `bcvUpdater.startScheduler()` usa `setInterval` sin `clearInterval` al cerrar la app. — `src/services/bcvUpdater.js:182-184` *(Corregido: `stopScheduler()` limpia timeout+interval; se llama en `app.on('before-quit')`.)*
 
 ## A.7 🖥️ Frontend — bugs, XSS y fugas (→ Fase 8)
 
@@ -859,7 +859,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟡 **Vuelto (`registerChange`) en USD usa la tasa BCV ACTUAL, no la de la venta.** `amountInVes = amount * rates.BCV` con la tasa vigente; si la tasa cambió entre la venta y el registro del vuelto, el `venta_pagos` negativo queda con un monto en Bs inconsistente y descuadra el pendiente recalculado. — `controllers/sales.controller.js:1001-1003` (Fase 5/bugfix)
 - [ ]  🟡 **Se pueden vender productos soft-deleted.** `processSaleTransaction`/`processSale` usan `getProductByIdStmt` que NO filtra `activo=1`; un producto "eliminado" (soft-delete) todavía se puede agregar y vender si se conoce su `id`. — `controllers/sales.controller.js:31-33,370,544` (Fase 5/bugfix)
 - [ ]  🟡 **Cashea: cuotas no validan que sumen el total ni que las fechas sean válidas.** `createCasheaVenta` inserta las `cuotas` tal cual llegan del cliente sin verificar que `Σ monto_usd (+ inicial) == monto_total_usd` ni cantidad/orden de cuotas; permite planes de pago inconsistentes. Complementa A.4 (falta de validación en Cashea). — `controllers/cashea.controller.js:5-38` (Fase 5)
-- [ ]  🟡 **`updateRates` sigue sin transacción** (6+ UPDATE/INSERT sueltos) — ya listado en A.4 como `settings.controller.js`; **verificado que persiste** tras los cambios de Fase 4/10. Se reafirma aquí para cerrarlo en Fase 5. — `controllers/settings.controller.js:43-79` (Fase 5)
+- [x]  🟡 **`updateRates` sigue sin transacción** (6+ UPDATE/INSERT sueltos) — ya listado en A.4 como `settings.controller.js`; **verificado que persiste** tras los cambios de Fase 4/10. Se reafirma aquí para cerrarlo en Fase 5. — `controllers/settings.controller.js:43-79` (Fase 5) *(Corregido: `db.transaction()` + upsert.)*
 
 ## B.E 🗄️ Base de datos (→ Fase 5 / nueva Fase 14)
 

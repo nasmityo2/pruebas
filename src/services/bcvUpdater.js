@@ -170,19 +170,28 @@ function updateBCVRate(force = true) {
 }
 
 // Scheduler logic
+// A.6: se guardan las referencias de timers para poder limpiarlas al cerrar (evita fugas).
+let _bootTimer = null;
+let _intervalTimer = null;
+
 function startScheduler() {
     console.log('Starting BCV update scheduler...');
 
     // Run immediately on startup (respecting auto setting)
-    setTimeout(() => {
+    _bootTimer = setTimeout(() => {
         updateBCVRate(false);
     }, 5000);
 
     // Schedule runs every 30 minutes (30 * 60 * 1000 = 1800000 ms)
-    setInterval(() => {
+    _intervalTimer = setInterval(() => {
         updateBCVRate(false);
     }, 30 * 60 * 1000);
 }
 
-module.exports = { updateBCVRate, startScheduler };
+function stopScheduler() {
+    if (_bootTimer) { clearTimeout(_bootTimer); _bootTimer = null; }
+    if (_intervalTimer) { clearInterval(_intervalTimer); _intervalTimer = null; }
+}
+
+module.exports = { updateBCVRate, startScheduler, stopScheduler };
 

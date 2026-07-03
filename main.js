@@ -442,6 +442,8 @@ try {
 
   app.on('before-quit', () => {
     isQuitting = true;
+    // A.6: detener timers de fondo para evitar fugas al cerrar.
+    try { require('./src/services/bcvUpdater').stopScheduler(); } catch (_) { /* noop */ }
   });
 
   app.on('window-all-closed', () => {

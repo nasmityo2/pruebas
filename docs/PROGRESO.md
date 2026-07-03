@@ -289,3 +289,15 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   una sesión con GUI (ver BLOQUEOS.md).
 
 ---
+
+## Anexo A A.4/A.6 — Transacción de tasas + timers del scheduler
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-robustez`. **Tests:** 83/83 verde.
+
+- `updateRates` ahora escribe TODAS las tasas/ajustes en una `db.transaction()` con upsert
+  (`INSERT ... ON CONFLICT DO UPDATE`); el fetch async de BCV queda fuera. Un fallo intermedio
+  ya no deja tasas a medias (A.4/B.D).
+- `bcvUpdater`: `stopScheduler()` limpia el `setTimeout` de arranque y el `setInterval` de 30
+  min; se invoca en `app.on('before-quit')` (A.6, evita fuga de timers).
+
+---
