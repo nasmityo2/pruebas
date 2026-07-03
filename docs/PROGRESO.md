@@ -410,6 +410,16 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.4 — force_settle acotado
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-forcesettle`.
+
+- `registerPayment` `force_settle`: solo cierra como PAGADO si la deuda recalculada es un
+  residuo (<= $0.05). Si queda deuda real, conserva el abono y el estado recalculado (no se
+  pierde el pago) pero NO marca PAGADO. Antes "perdonaba" deuda real sin control.
+
+---
+
 ## Resumen de la sesión
 
 - **Suite de tests:** 85/85 verde (arrancó en 36; +49 nuevos).
