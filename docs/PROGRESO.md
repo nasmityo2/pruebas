@@ -377,6 +377,17 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.9 — Plantilla de importación (enlace roto)
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-a9`.
+
+- Nuevo `GET /api/products/import-template`: genera en memoria (con `xlsx`) un `.xlsx` con las
+  columnas que espera `importProducts` + una fila de ejemplo. El enlace de `configuracion.html`
+  apuntaba a un archivo estático inexistente (`/excel-template/...`) → importación guiada rota;
+  ahora apunta al endpoint.
+
+---
+
 ## Resumen de la sesión
 
 - **Suite de tests:** 84/84 verde (arrancó en 36; +48 nuevos).

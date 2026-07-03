@@ -6,6 +6,7 @@ const { upload } = require('../server');
 router.get('/', productController.getProducts);
 router.post('/', productController.createProduct);
 router.get('/export', productController.exportProducts);
+router.get('/import-template', productController.getImportTemplate);
 router.post('/import', upload.single('csvFile'), productController.importProducts);
 router.get('/bultos', productController.getBultoProducts);
 router.get('/barcode/:barcode', productController.getProductByBarcode);
