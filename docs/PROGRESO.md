@@ -238,3 +238,21 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   difiere (necesita runtime/GUI); la publicación sí queda auditada en el servidor.
 
 ---
+
+## Fase 11.6 + 11.7 — Cifrado de recursos ligado a licencia + watermark
+
+**Estado:** ✅ Primitivas completadas. **Rama:** `fase-11-6-7`. **Tests:** 79/79 verde.
+
+- `src/security/resourceCrypto.js` (puro): `deriveResourceKey(hwid, k)` = SHA-256(hwid|k),
+  `encryptResource`/`decryptResource` (AES-256-GCM). Sin `k` (que solo viaja en un token
+  válido del servidor) NO hay clave → el recurso no se descifra. 5 tests (incl. clave
+  equivocada falla).
+- `src/security/watermark.js` (puro): `licenseWatermark(licenseKey)` deriva un código
+  discreto y estable por licencia para incrustar en artefactos (PDFs) y rastrear fugas.
+
+- **DECISIÓN:** la SELECCIÓN del recurso esencial a cifrar en disco y su uso repartido por el
+  flujo, y la incrustación visual del watermark en los PDFs, se difieren a una sesión con GUI
+  (hay que validar que la app sigue operando y que el PDF no se rompe). Las primitivas y el
+  material `k`/`key` en el token ya están listos.
+
+---

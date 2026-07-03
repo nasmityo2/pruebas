@@ -441,10 +441,10 @@ function assertMonotonic(cache) {
 
 > Este es el sustituto en JS del addon nativo: hace que **quitar la licencia rompa la app** en lugar de desbloquearla.
 
-- [ ]  🔴 Elegir 1–2 recursos **esenciales para operar** (p. ej. un bundle de lógica de negocio de precios/reportes, o una tabla de parámetros crítica) y **cifrarlos en disco** (AES-256-GCM).
-- [ ]  🔴 Derivar la clave de descifrado de: `HWID` + un secreto contenido **dentro del token firmado por el servidor** (un campo `k` que solo llega al activar/verificar). Sin token válido del servidor → no hay clave → el recurso no se descifra → la app no funciona.
-- [ ]  🟠 Repartir el uso del recurso descifrado por varias partes del flujo (no un único punto), con verificaciones diferidas, para que parchear "el gate" no baste.
-- [ ]  🟡 Cachear el recurso descifrado solo en memoria; nunca escribirlo en claro a disco.
+- [~]  🔴 Elegir 1–2 recursos **esenciales para operar** (p. ej. un bundle de lógica de negocio de precios/reportes, o una tabla de parámetros crítica) y **cifrarlos en disco** (AES-256-GCM). *(PRIMITIVAS listas en `src/security/resourceCrypto.js` (AES-256-GCM). La SELECCIÓN del recurso esencial y su cifrado en disco se hará con la GUI para validar que la app sigue operando; requiere elegir el recurso sin romper el flujo.)*
+- [x]  🔴 Derivar la clave de descifrado de: `HWID` + un secreto contenido **dentro del token firmado por el servidor** (un campo `k` que solo llega al activar/verificar). Sin token válido del servidor → no hay clave → el recurso no se descifra → la app no funciona. *(`deriveResourceKey(hwid, tokenPayload.k)` = SHA-256(hwid|k); `k` ya viaja en el token (Fase 2 refuerzo). Sin `k` lanza error. 5 tests.)*
+- [~]  🟠 Repartir el uso del recurso descifrado por varias partes del flujo (no un único punto), con verificaciones diferidas, para que parchear "el gate" no baste. *(DIFERIDO a la integración con GUI, junto con la selección del recurso.)*
+- [~]  🟡 Cachear el recurso descifrado solo en memoria; nunca escribirlo en claro a disco. *(Las primitivas no persisten en claro; la política de caché en memoria se aplica al integrar el recurso.)*
 
 ```js
 // src/security/resourceCrypto.js (ilustrativo)
@@ -458,8 +458,8 @@ function deriveResourceKey(hwid, tokenPayload) {
 
 ### 11.7 Watermarking por licencia (trazabilidad de fugas)
 
-- [ ]  🟠 Incrustar un identificador por-cliente (derivado de la clave de licencia) en: el token, y opcionalmente en artefactos generados (PDFs de ticket/reportes con un código discreto).
-- [ ]  🟡 Guardar en el servidor el mapeo licencia↔cliente para, ante una copia filtrada, identificar el origen y **revocar** esa licencia.
+- [x]  🟠 Incrustar un identificador por-cliente (derivado de la clave de licencia) en: el token, y opcionalmente en artefactos generados (PDFs de ticket/reportes con un código discreto). *(El token ya incluye `key` por-cliente; `src/security/watermark.js` deriva un código discreto y estable por licencia, listo para incrustar en PDFs. Incrustación visual en los PDFs se hará con GUI.)*
+- [x]  🟡 Guardar en el servidor el mapeo licencia↔cliente para, ante una copia filtrada, identificar el origen y **revocar** esa licencia. *(El servidor ya guarda por licencia: `equipo`, `clientPhone`, `clientEmail`, `hwid`, `history`; el watermark del ticket es reversible a la `key` → revocable.)*
 
 **Criterio:** ante una copia circulando, es posible identificar qué licencia/cliente la originó y revocarla.
 
