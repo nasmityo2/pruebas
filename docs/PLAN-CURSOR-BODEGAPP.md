@@ -377,9 +377,9 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 ### 11.1 Aislar la lógica sensible en módulos dedicados
 
-- [ ]  🟠 Concentrar TODA la lógica de licencia/seguridad en una carpeta única, p. ej. `src/security/` con: `licenseGate.js` (decisión de acceso), `token.js` (verificación firma/HWID/exp/replay), `hwid.js`, `clock.js` (anti-rollback), `resourceCrypto.js` (cifrado ligado a licencia), `integrity.js` (self-check). Esto permite en la Fase 13 **compilar/ofuscar selectivamente** solo estos módulos con máxima agresividad.
-- [ ]  🟠 Cada módulo sensible debe exportar una API estable con **strings literales** (sin nombres dinámicos), para sobrevivir a la ofuscación.
-- [ ]  🔵 Documentar en `docs/SEGURIDAD-CLIENTE.md` qué archivos son "sensibles" (lista blanca para bytenode/ofuscación de la Fase 13).
+- [~]  🟠 Concentrar TODA la lógica de licencia/seguridad en una carpeta única, p. ej. `src/security/` con: `licenseGate.js` (decisión de acceso), `token.js` (verificación firma/HWID/exp/replay), `hwid.js`, `clock.js` (anti-rollback), `resourceCrypto.js` (cifrado ligado a licencia), `integrity.js` (self-check). Esto permite en la Fase 13 **compilar/ofuscar selectivamente** solo estos módulos con máxima agresividad. *(INICIADO: creado `src/security/clock.js`. El resto (`token.js`, `hwid.js`, `resourceCrypto.js`, `integrity.js`) se irá extrayendo en 11.4/11.5/11.6/11.8; requiere validación GUI para mover sin romper.)*
+- [x]  🟠 Cada módulo sensible debe exportar una API estable con **strings literales** (sin nombres dinámicos), para sobrevivir a la ofuscación. *(`src/security/clock.js` cumple; regla documentada en `docs/SEGURIDAD-CLIENTE.md`.)*
+- [x]  🔵 Documentar en `docs/SEGURIDAD-CLIENTE.md` qué archivos son "sensibles" (lista blanca para bytenode/ofuscación de la Fase 13). *(Creado.)*
 
 **Criterio:** existe `src/security/*` con la lógica sensible aislada; el resto del código la consume por su API pública.
 
@@ -387,10 +387,10 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 > Cierra A.1 ("Expiración offline + manipulación del reloj").
 
-- [ ]  🔴 Guardar un **sello de tiempo monotónico** (`lastSeenEpoch`) dentro de la caché cifrada de licencia (`lic.dat`) y actualizarlo en cada arranque y cada heartbeat exitoso.
-- [ ]  🔴 Al iniciar, si `Date.now()/1000 < lastSeenEpoch - TOLERANCIA` (p. ej. tolerancia de 24 h por husos/ajustes legítimos) → considerar el reloj **manipulado**: invalidar la caché y exigir re-verificación online.
-- [ ]  🟠 Persistir además `lastSeenEpoch` en una segunda ubicación cifrada (p. ej. registro de Windows o un segundo archivo con clave derivada distinta) y tomar el **máximo** de ambas, para que borrar un archivo no resetee el anti-rollback.
-- [ ]  🟠 Registrar (auditoría local) los eventos de "reloj hacia atrás detectado".
+- [x]  🔴 Guardar un **sello de tiempo monotónico** (`lastSeenEpoch`) dentro de la caché cifrada de licencia (`lic.dat`) y actualizarlo en cada arranque y cada heartbeat exitoso. *(`saveLicenseCache` guarda `lastSeenEpoch = max(prev, now)`.)*
+- [x]  🔴 Al iniciar, si `Date.now()/1000 < lastSeenEpoch - TOLERANCIA` (p. ej. tolerancia de 24 h por husos/ajustes legítimos) → considerar el reloj **manipulado**: invalidar la caché y exigir re-verificación online. *(`getCachedPayload` usa `clock.isClockRolledBack`; módulo puro con 6 tests.)*
+- [~]  🟠 Persistir además `lastSeenEpoch` en una segunda ubicación cifrada (p. ej. registro de Windows o un segundo archivo con clave derivada distinta) y tomar el **máximo** de ambas, para que borrar un archivo no resetee el anti-rollback. *(DIFERIDO: la 2ª ubicación (registro de Windows) necesita entorno Windows/GUI para probar; `clock.maxLastSeen` ya está listo para combinar fuentes.)*
+- [~]  🟠 Registrar (auditoría local) los eventos de "reloj hacia atrás detectado". *(DIFERIDO junto a la integración GUI del gate.)*
 
 ```js
 // src/security/clock.js (ilustrativo)

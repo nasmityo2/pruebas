@@ -11,6 +11,7 @@ const os = require('os');
 const { machineIdSync } = require('node-machine-id');
 const { getDataBasePath } = require('./settings');
 const { HIST_SECRET } = require('../config');
+const clock = require('../security/clock');
 
 // Llave pública NUEVA (rotada en Fase 1). Solo verifica firmas; nunca puede firmar.
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -119,9 +120,14 @@ function cacheKey() {
 
 function saveLicenseCache(obj) {
   try {
+    // Fase 11.2: sello de tiempo MONOTÓNICO. Se guarda el mayor epoch visto (arranques y
+    // heartbeats exitosos). Atrasar el reloj luego NO extiende licencia/trial (ver getCachedPayload).
+    const now = Math.floor(Date.now() / 1000);
+    const prev = (() => { try { const c = readLicenseCache(); return c && c.lastSeenEpoch; } catch (_) { return 0; } })();
+    const toStore = { ...obj, lastSeenEpoch: clock.nextLastSeen({ now, lastSeenEpoch: prev || 0 }) };
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', cacheKey(), iv);
-    const plaintext = Buffer.from(JSON.stringify(obj), 'utf8');
+    const plaintext = Buffer.from(JSON.stringify(toStore), 'utf8');
     const enc = Buffer.concat([cipher.update(plaintext), cipher.final()]);
     const tag = cipher.getAuthTag();
     const payload = Buffer.concat([iv, tag, enc]).toString('base64');
@@ -164,6 +170,13 @@ function clearLicenseCache() {
 function getCachedPayload() {
   const cache = readLicenseCache();
   if (!cache || !cache.token) return null;
+  // Fase 11.2: si el reloj del sistema fue atrasado por debajo del último sello visto
+  // (menos la tolerancia por husos), tratamos la caché como NO confiable y exigimos
+  // re-verificación online (no se concede licencia/trial con el reloj manipulado).
+  const now = Math.floor(Date.now() / 1000);
+  if (clock.isClockRolledBack({ now, lastSeenEpoch: cache.lastSeenEpoch || 0 })) {
+    return null;
+  }
   return verifyToken(cache.token);
 }
 
