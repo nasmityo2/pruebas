@@ -497,11 +497,11 @@ function deriveResourceKey(hwid, tokenPayload) {
 
 **Meta:** que la app nunca ejecute un binario de actualización no firmado por el dueño.
 
-- [ ]  🔴 Firmar cada binario de actualización con la **clave privada del servidor** (o una clave dedicada de releases). Publicar junto al binario su **hash + firma**.
-- [ ]  🔴 El cliente, antes de ejecutar cualquier `.exe` descargado: verificar hash **y** firma con la clave pública embebida. Si falla → abortar y no ejecutar.
-- [ ]  🟠 `download-update`/`execute-update` solo-localhost (ya parcial en Fase 3) **+** validación de firma obligatoria; rechazar URLs arbitrarias del body.
-- [ ]  🟠 Publicar updates solo desde el panel con `authenticateToken` + `requireAdmin` (ya en Fase 2; verificar).
-- [ ]  🟡 Registrar en auditoría cada actualización aplicada (versión, hash, resultado).
+- [x]  🔴 Firmar cada binario de actualización con la **clave privada del servidor** (o una clave dedicada de releases). Publicar junto al binario su **hash + firma**. *(Script `scripts/sign-update.js` imprime `sha256`+`signature`; `/update/publish` ahora EXIGE ambos.)*
+- [x]  🔴 El cliente, antes de ejecutar cualquier `.exe` descargado: verificar hash **y** firma con la clave pública embebida. Si falla → abortar y no ejecutar. *(`src/security/updateVerify.js` + `executeUpdate` verifica antes de `spawn`; si falla borra el archivo y responde 400. 4 tests.)*
+- [x]  🟠 `download-update`/`execute-update` solo-localhost (ya parcial en Fase 3) **+** validación de firma obligatoria; rechazar URLs arbitrarias del body. *(`downloadUpdate` ya no acepta URL arbitraria: solo la `downloadUrl` publicada por el dueño (server-verified), y exige sha256+firma.)*
+- [x]  🟠 Publicar updates solo desde el panel con `authenticateToken` + `requireAdmin` (ya en Fase 2; verificar). *(Verificado: `/update/publish` usa `authenticateToken`+`requireAdmin`; ahora además loguea `UPDATE_PUBLISH`.)*
+- [~]  🟡 Registrar en auditoría cada actualización aplicada (versión, hash, resultado). *(Servidor: se audita la PUBLICACIÓN (`UPDATE_PUBLISH`). El registro en la auditoría LOCAL del cliente al aplicar se difiere (necesita runtime/GUI).)*
 
 **Criterio:** un `.exe` de actualización sin firma válida del dueño **no se ejecuta**; no se aceptan URLs arbitrarias.
 
@@ -691,7 +691,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [x]  🔴 `POST /redeem-token` es público y genera licencias PRO firmadas con solo un UUID de token válido (sin auth ni rate limiting). — *(Fase 2: `/redeem-token` eliminado; las licencias solo las genera el admin autenticado.)*
 - [x]  🔴 `SHARED_API_KEY` en header `x-api-key` otorga rol admin sintético. — *(Fase 2: `authenticateApiKey` y `SHARED_API_KEY` eliminados del flujo de auth.)*
 - [x]  🔴 `POST /update/publish` no verifica rol admin: cualquier JWT válido publica `downloadUrl` arbitrario. — *(Fase 2: ahora exige `authenticateToken` + `requireAdmin`.)*
-- [ ]  🔴 Updates sin firma digital: el cliente descarga y ejecuta el `.exe` de `downloadUrl` sin verificar hash/firma (cadena RCE). — *(PARCIAL: en Fase 3 `download-update`/`execute-update` quedaron solo-localhost; FALTA verificar firma/hash del binario. Pendiente.)*
+- [x]  🔴 Updates sin firma digital: el cliente descarga y ejecuta el `.exe` de `downloadUrl` sin verificar hash/firma (cadena RCE). — *(Fase 12: verificación obligatoria de hash+firma antes de ejecutar; URL restringida a la publicada por el dueño.)*
 - [ ]  🔴 Race conditions: patrón `readJson → modificar → saveJson` sin locks ni escritura atómica. — *(Pendiente: escritura atómica/lock. Riesgo bajo hoy: un único admin, baja concurrencia.)*
 - [x]  🟠 `POST /protected/invite` y `POST /protected/toggle` sin chequeo de rol; `invite` acepta `role: 'admin'` arbitrario. — *(Fase 2: esos endpoints se eliminaron; los nuevos `/admin/*` usan `requireAdmin`.)*
 - [~]  🟠 CORS totalmente abierto y sin rate limiting en `/login` (fuerza bruta). — *(Fase 2: rate limiting añadido a `/login`, `/activate`, `/verify`, `/trial`. CORS del panel configurable por `PANEL_ORIGIN` pero abierto por defecto — pendiente restringir en despliegue.)*
@@ -709,7 +709,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 > Nota: `0.0.0.0`, CORS `origin:true` y firewall 53050–53060 ya están contemplados en la Fase 3. Aquí se listan endpoints concretos sin auth que faltan endurecer.
 
-- [ ]  🔴 Cadena RCE: `POST /api/utils/download-update` descarga un `.exe` desde una URL arbitraria del body y `POST /api/utils/execute-update` lo ejecuta con `spawn` + `process.exit(0)`, sin firma ni validación de origen. — *(PARCIAL Fase 3: ambos son solo-localhost (bloqueados en LAN). FALTA verificación de firma/hash del binario antes de ejecutar. Pendiente.)*
+- [x]  🔴 Cadena RCE: `POST /api/utils/download-update` descarga un `.exe` desde una URL arbitraria del body y `POST /api/utils/execute-update` lo ejecuta con `spawn` + `process.exit(0)`, sin firma ni validación de origen. — *(Fase 12: `download-update` solo usa la URL publicada por el dueño; `execute-update` verifica hash+firma antes de ejecutar y aborta si falla. Siguen siendo solo-localhost (Fase 3).)*
 - [x]  🔴 `POST /api/backup/cloud/restore` reemplaza `mi-tienda.db` con un `.db` remoto sin pedir contraseña admin (solo `token`+`filename`). — *(Fase 4/6: `ensureUnlocked` exige clave admin para restaurar; además la nube está desactivada por defecto.)*
 - [ ]  🟠 `POST /api/print/remote` (printText/printHTML/getPrinters) sin token ni validación de origen. — `server.js` *(Pendiente; en LAN queda tras el gate de token temporal, pero sin auth adicional.)*
 - [x]  🟠 `POST /api/settings/admin-password` permite fijar o **borrar** la contraseña admin sin auth previa. — *(Fix Fase 10: `updateAdminPassword` ahora exige `ensureUnlocked` para cambiar/borrar (cuando ya hay clave) y usa bcrypt; queda auditado.)*

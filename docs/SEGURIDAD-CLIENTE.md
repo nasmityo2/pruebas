@@ -16,6 +16,7 @@ licencia, integridad y anti-manipulación. Es la **lista blanca** para la Fase 1
 | `src/security/token.js` | Anti-replay del token (`jti`/`iat`, lógica pura) | ✅ creado (Fase 11.5) |
 | `src/security/offline.js` | Bloqueo por offline prolongado (lógica pura) | ✅ creado (Fase 11.3) |
 | `src/security/hwid.js` | Huella de hardware multi-señal (fail-safe, sin archivo portátil) | ✅ creado (Fase 11.4) |
+| `src/security/updateVerify.js` | Verificación de firma+hash de actualizaciones (anti-RCE) | ✅ creado (Fase 12) |
 | `src/utils/license.js` | Verificación de token firmado (RSA), HWID, caché cifrada, estado de la app | existente |
 | `controllers/license.controller.js` | Activación, heartbeat, trial (habla con el servidor) | existente |
 | `src/utils/adminUnlock.js` | Desbloqueo admin para acciones sensibles | existente |

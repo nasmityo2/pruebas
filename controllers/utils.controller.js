@@ -71,8 +71,23 @@ const getLocalIp = async (req, res) => {
 };
 
 const downloadUpdate = async (req, res) => {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: 'URL de descarga requerida' });
+    // Fase 12 (anti-RCE): NO se acepta una URL arbitraria del cliente. Solo se descarga la
+    // actualización PUBLICADA por el dueño (global.latestUpdate viene del servidor de
+    // licencias vía heartbeat, tras login admin) y que traiga hash + firma para verificar.
+    const published = global.latestUpdate;
+    if (!published || !published.downloadUrl) {
+        return res.status(400).json({ error: 'No hay una actualización publicada y verificada disponible.' });
+    }
+    if (!published.sha256 || !published.signature) {
+        return res.status(400).json({ error: 'La actualización publicada no está firmada; se rechaza por seguridad.' });
+    }
+    const { url } = req.body || {};
+    if (url && url !== published.downloadUrl) {
+        return res.status(403).json({ error: 'La URL solicitada no coincide con la actualización publicada.' });
+    }
+    const downloadUrl = published.downloadUrl;
+    // Metadatos de verificación que exigirá executeUpdate.
+    global.pendingUpdateMeta = { sha256: published.sha256, signature: published.signature, version: published.version };
 
     // Reset progress
     downloadProgress = { percent: 0, completed: false, error: null };
@@ -84,10 +99,10 @@ const downloadUpdate = async (req, res) => {
     global.downloadedInstallerPath = filePath;
 
     try {
-        console.log(`[UPDATER] Iniciando descarga de: ${url}`);
+        console.log(`[UPDATER] Iniciando descarga de: ${downloadUrl}`);
         const response = await axios({
             method: 'GET',
-            url: url,
+            url: downloadUrl,
             responseType: 'stream'
         });
 
@@ -135,10 +150,33 @@ const executeUpdate = (req, res) => {
         return res.status(400).json({ error: 'Instalador no encontrado' });
     }
 
-    console.log(`[UPDATER] Ejecutando instalador: ${filePath}`);
-    
+    // Fase 12 (anti-RCE): verificar HASH + FIRMA del binario ANTES de ejecutarlo.
+    // Sin firma válida del dueño => se aborta y se borra el archivo.
+    try {
+        const { verifyUpdateFile } = require('../src/security/updateVerify');
+        const { getPublicKey } = require('../src/utils/license');
+        const meta = global.pendingUpdateMeta || {};
+        const fileBuffer = fs.readFileSync(filePath);
+        const result = verifyUpdateFile({
+            fileBuffer,
+            expectedSha256: meta.sha256,
+            signatureB64: meta.signature,
+            publicKey: getPublicKey(),
+        });
+        if (!result.ok) {
+            console.error(`[UPDATER] Verificación de firma FALLÓ (${result.reason}). No se ejecuta.`);
+            try { fs.unlinkSync(filePath); } catch (_) { /* noop */ }
+            global.downloadedInstallerPath = null;
+            return res.status(400).json({ error: `Actualización no verificada (${result.reason}). Se abortó por seguridad.` });
+        }
+    } catch (e) {
+        console.error('[UPDATER] Error verificando la actualización:', e.message);
+        return res.status(500).json({ error: 'No se pudo verificar la actualización.' });
+    }
+
+    console.log(`[UPDATER] Firma verificada. Ejecutando instalador: ${filePath}`);
+
     // Ejecutar el instalador de forma independiente (detached)
-    // Usamos shell: true para manejar archivos .exe o scripts si fuera necesario
     const child = spawn(filePath, [], {
         detached: true,
         stdio: 'ignore',
