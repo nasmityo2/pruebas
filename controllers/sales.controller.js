@@ -85,16 +85,9 @@ const getAbonosBySaleIdStmt = db.prepare(`
 
 const getClienteByIdStmt = db.prepare('SELECT * FROM clientes WHERE id = ?');
 
-// 🔽 PARA ANULAR VENTA
-const deleteSalePaymentsStmt = db.prepare('DELETE FROM venta_pagos WHERE venta_id = ?');
-const deleteSaleAbonosStmt = db.prepare('DELETE FROM abonos WHERE venta_id = ?');
-const restoreStockOnCancelStmt = db.prepare('UPDATE productos SET stock = stock + ? WHERE id = ?');
-const markSaleCancelledStmt = db.prepare(`
-  UPDATE ventas
-  SET estado_pago = 'ANULADO',
-      monto_pendiente_usd = 0
-  WHERE id = ?
-`);
+// NOTA (Anexo A A.6): la anulación de ventas la maneja `voidSale` en `reports.controller.js`
+// (ruteado, con clave admin, soft-delete de abonos). El antiguo `cancelSale` de este archivo
+// estaba EXPORTADO pero SIN ruta y hacía borrado físico de abonos/pagos: se eliminó.
 
 // 🔽 actualizar estado_pago y monto_pendiente_usd
 const updateSaleStatusStmt = db.prepare(`
@@ -1028,61 +1021,10 @@ const registerChange = (req, res) => {
   }
 };
 
-// ===== ANULAR VENTA (revertir stock + borrar pagos + borrar abonos) =====
-
-const cancelSale = (req, res) => {
-  const saleId = parseInt(req.params.id, 10);
-  if (isNaN(saleId)) {
-    return res.status(400).json({ error: 'ID de venta inválido.' });
-  }
-
-  try {
-    const tx = db.transaction((id) => {
-      const sale = getSaleByIdStmt.get(id);
-      if (!sale) {
-        throw new Error('Venta no encontrada.');
-      }
-
-      if (sale.estado_pago === 'ANULADO') {
-        return { alreadyCancelled: true };
-      }
-
-      const items = getSaleProductsBySaleIdStmt.all(id);
-      items.forEach((item) => {
-        restoreStockOnCancelStmt.run(item.cantidad, item.producto_id);
-      });
-
-      deleteSalePaymentsStmt.run(id);
-      deleteSaleAbonosStmt.run(id);
-      markSaleCancelledStmt.run(id);
-
-      return { alreadyCancelled: false };
-    });
-
-    const result = tx(saleId);
-
-    if (result.alreadyCancelled) {
-      return res.json({
-        success: true,
-        message: 'La venta ya estaba anulada previamente.',
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Venta anulada correctamente. Stock restaurado y pagos/abonos eliminados.',
-    });
-  } catch (error) {
-    console.error(`Error anulando venta ${saleId}: `, error);
-    return res.status(500).json({ error: 'Error interno al anular la venta.' });
-  }
-};
-
 module.exports = {
   processSale,
   getSaleReceipt,
   getSaleDetails,
   registerChange,
-  cancelSale,
   recalcSalePendingAndStatus,
 };
