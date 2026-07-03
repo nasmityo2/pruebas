@@ -415,12 +415,15 @@ const processSaleTransaction = db.transaction(
       );
 
       if (!isVentaLibre) {
+        // Anexo A A.4: la guarda `AND stock >= ?` evita stock NEGATIVO aunque el mismo
+        // producto aparezca en varias líneas del carrito o por una carrera. Si no se puede
+        // descontar (stock insuficiente), `changes` será 0 y la transacción se revierte.
         const stockUpdateInfo = db
-          .prepare('UPDATE productos SET stock = stock - ? WHERE id = ?')
-          .run(item.quantity, item.id);
+          .prepare('UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?')
+          .run(item.quantity, item.id, item.quantity);
         if (stockUpdateInfo.changes !== 1) {
           throw new Error(
-            `Failed to update stock correctly for product ID ${item.id}. Changes: ${stockUpdateInfo.changes}`
+            `Stock insuficiente o inconsistente para el producto ID ${item.id} (evitado stock negativo).`
           );
         }
       }

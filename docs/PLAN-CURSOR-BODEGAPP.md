@@ -724,7 +724,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 ## A.4 💵 Ventas, cobranza y dinero — backend (→ Fase 5 / bugfix)
 
-- [ ]  🔴 Stock puede quedar **negativo**: el descuento `UPDATE productos SET stock = stock - ?` no lleva `AND stock >= ?` y el guard solo comprueba `changes !== 1` (que sigue siendo 1 con resultado negativo). — `controllers/sales.controller.js:410-419`
+- [x]  🔴 Stock puede quedar **negativo**: el descuento `UPDATE productos SET stock = stock - ?` no lleva `AND stock >= ?` y el guard solo comprueba `changes !== 1` (que sigue siendo 1 con resultado negativo). — `controllers/sales.controller.js:410-419` *(Corregido: `AND stock >= ?`; si no descuenta, la transacción se revierte. Test en `db.logic.test.js`.)*
 - [ ]  🔴 El total de la venta se toma del cliente sin recalcular en servidor (`finalTotalVes = round2(parseFloat(totalVes))` del body); el backend calcula IVA pero no reconstruye el total desde el carrito × precios de BD. — `controllers/sales.controller.js:454,473-474,553-564`
 - [ ]  🔴 `force_settle` cierra la venta como `PAGADO` y `monto_pendiente_usd = 0` sin verificar que la deuda recalculada sea realmente 0. — `controllers/client.controller.js:471-477`
 - [ ]  🟠 Dashboard infla la ganancia: `profitVes = total_ingresos_ves - total_costo_ves` usa `SUM(total_ves)` de **todas** las ventas del día (incluye fiados no cobrados), no lo realmente cobrado. — `controllers/reports.controller.js:2073` (stmt `:390-393`)
@@ -737,7 +737,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟡 PDFs de rango/fiados convierten a USD con `getBcvRate()` **actual** en vez de la tasa histórica de cada venta → totales en $ incorrectos si cambió BCV. — `controllers/reports.controller.js:1152-1164,2480-2487`
 - [ ]  🟡 (verificar) Venta con `estado_pago === 'PAGADO'` pero pendiente > 0.01: se advierte pero no se corrige el estado en BD. — `controllers/sales.controller.js:300-305`
 - [ ]  🟡 Cashea: `PagarCuota()` y `createCasheaVenta()` sin transacción ni validación de existencia/duplicados de la cuota/venta. — `controllers/cashea.controller.js:5-37,71-92`
-- [ ]  🟡 `client.voidPayment()` hace `DELETE FROM abonos` físico pese a existir columnas `anulado`/`anulado_en` (rompe soft-delete y auditoría). — `controllers/client.controller.js:648-650`
+- [x]  🟡 `client.voidPayment()` hace `DELETE FROM abonos` físico pese a existir columnas `anulado`/`anulado_en` (rompe soft-delete y auditoría). — `controllers/client.controller.js:648-650` *(Corregido: ahora soft-delete (`anulado=1`, `anulado_en`, `motivo_anulacion`); idempotente. Test en `db.logic.test.js`.)*
 - [ ]  🟡 `product.updateStock()` permite ajustes negativos sin piso 0 ni transacción. — `controllers/product.controller.js:1142-1148`
 - [ ]  🟡 Inconsistencia de tasas: `sales.controller.getRates()` NO hace `parseFloat` mientras `product/presentation/client` sí; con la guarda `typeof === 'number'` de `calculateInternalCostVes`, si una tasa llega como texto el costo se vuelve 0 silenciosamente. — `controllers/sales.controller.js:162-168,109-133`
 

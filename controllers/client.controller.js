@@ -126,9 +126,15 @@ const getAbonoByIdStmt = db.prepare(`
   WHERE id = ?
 `);
 
-const deleteAbonoStmt = db.prepare(`
-  DELETE FROM abonos
-  WHERE id = ?
+// Anexo A A.4 + regla global "NO borrar físicamente abonos": anular = soft-delete.
+// El histórico se conserva (columnas anulado/anulado_en/motivo_anulacion) y las
+// consultas de recálculo filtran `COALESCE(anulado,0)=0`.
+const voidAbonoStmt = db.prepare(`
+  UPDATE abonos
+  SET anulado = 1,
+      anulado_en = datetime('now','localtime'),
+      motivo_anulacion = @motivo
+  WHERE id = @id AND COALESCE(anulado,0) = 0
 `);
 
 const updateSaleStatusStmt = db.prepare(`
@@ -642,12 +648,15 @@ function voidPayment(req, res) {
     if (!abono.venta_id) {
       return res.status(400).json({ error: 'El abono no está asociado a una venta.' });
     }
+    if (Number(abono.anulado) === 1) {
+      return res.status(400).json({ error: 'El abono ya estaba anulado.' });
+    }
 
     const ventaId = abono.venta_id;
 
     const tx = db.transaction(() => {
-      // Eliminar abono
-      deleteAbonoStmt.run(abonoId);
+      // Anular abono (soft-delete): NO se borra físicamente, se marca anulado.
+      voidAbonoStmt.run({ id: abonoId, motivo });
 
       // Des-archivar la venta para que vuelva a aparecer
       unarchiveSaleStmt.run(ventaId);
@@ -672,7 +681,7 @@ function voidPayment(req, res) {
       pendiente_usd: Number(pendienteUsd.toFixed(2)),
       pendiente_ves: Number(pendienteVes.toFixed(2)),
       deuda_original_usd: Number(deudaOriginalUsd.toFixed(2)),
-      message: motivo || 'Abono anulado y eliminado correctamente.',
+      message: motivo || 'Abono anulado correctamente.',
     });
   } catch (error) {
     console.error('Error voidPayment:', error);
