@@ -96,7 +96,12 @@ function readJson(file, defaultData) {
     }
 }
 function saveJson(file, data) {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    // A.2: escritura ATÓMICA (temp + rename) para que un corte a mitad de escritura no deje
+    // el JSON corrupto (rename es atómico en el mismo volumen). Reduce la ventana de la carrera
+    // readJson→modificar→saveJson y evita corromper licenses.json/users.json.
+    const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, file);
 }
 
 function logAccess(event, detail) {
