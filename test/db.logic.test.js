@@ -67,6 +67,44 @@ test('índices: CREATE INDEX IF NOT EXISTS es idempotente', () => {
   assert.ok(found);
 });
 
+test('Fase 5: PRAGMA foreign_keys=ON rechaza hijos con padre inexistente', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec(`
+    CREATE TABLE ventas (id INTEGER PRIMARY KEY AUTOINCREMENT, total_ves REAL);
+    CREATE TABLE venta_productos (
+      id INTEGER PRIMARY KEY, venta_id INTEGER NOT NULL, cantidad REAL,
+      FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE
+    );
+  `);
+  // Insertar un hijo con venta_id inexistente DEBE fallar con FK activado.
+  assert.throws(
+    () => db.prepare('INSERT INTO venta_productos (venta_id, cantidad) VALUES (?, ?)').run(999, 1),
+    /FOREIGN KEY/i
+  );
+  // Con un padre válido, sí funciona.
+  const v = db.prepare('INSERT INTO ventas (total_ves) VALUES (?)').run(100);
+  assert.doesNotThrow(() =>
+    db.prepare('INSERT INTO venta_productos (venta_id, cantidad) VALUES (?, ?)').run(v.lastInsertRowid, 1)
+  );
+});
+
+test('Fase 5: abonos anulados se CONSERVAN (no se borran) y se filtran por anulado', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`
+    CREATE TABLE abonos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, venta_id INTEGER, monto_pagado_usd REAL,
+      anulado INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+  db.prepare('INSERT INTO abonos (venta_id, monto_pagado_usd, anulado) VALUES (?, ?, ?)').run(1, 10, 0);
+  db.prepare('INSERT INTO abonos (venta_id, monto_pagado_usd, anulado) VALUES (?, ?, ?)').run(1, 5, 1);
+  // El histórico completo se conserva (2 filas), pero las consultas de negocio filtran anulados.
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM abonos').get().n, 2);
+  const activos = db.prepare('SELECT COUNT(*) AS n FROM abonos WHERE COALESCE(anulado,0)=0').get().n;
+  assert.strictEqual(activos, 1);
+});
+
 test('venta descuenta stock; anular restaura stock y hace soft-delete (no borra la venta)', () => {
   const db = freshDb();
   db.prepare('INSERT INTO productos (id, nombre, stock) VALUES (?, ?, ?)').run(1, 'Harina', 10);

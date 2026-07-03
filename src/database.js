@@ -403,24 +403,10 @@ function initializeDB() {
     }
   }
 
-  // 🔥 LIMPIEZA: eliminar abonos que antes se ocultaban (anulado = 1)
-  try {
-    const deleteAnuladosStmt = db.prepare(`
-      DELETE FROM abonos
-      WHERE anulado = 1
-    `);
-    const infoDel = deleteAnuladosStmt.run();
-    console.log(
-      'Migración DB: abonos anulados antiguos eliminados (' +
-      infoDel.changes +
-      ' filas borradas).'
-    );
-  } catch (e) {
-    console.warn(
-      'Advertencia de migración: no se pudieron eliminar abonos anulados:',
-      e.message
-    );
-  }
+  // NOTA (Fase 5 / Anexo A A.5): ANTES aquí se ejecutaba `DELETE FROM abonos WHERE anulado = 1`
+  // en CADA arranque, borrando el histórico de abonos anulados (rompe soft-delete/auditoría).
+  // Se ELIMINÓ: los abonos anulados se conservan (columna `anulado`) y se filtran en las
+  // consultas con `COALESCE(anulado,0)=0`. No se borra físicamente ningún abono.
 
   // ==========================
   // RETIROS DE CAJA
@@ -1166,6 +1152,22 @@ function initializeDB() {
     if (result.applied > 0) console.log(`Migraciones versionadas aplicadas: ${result.applied}`);
   } catch (e) {
     console.error('Error ejecutando migraciones versionadas:', e.message);
+  }
+
+  // ==========================
+  // INTEGRIDAD REFERENCIAL (Fase 5 / Anexo A A.5)
+  // ==========================
+  // Activar la aplicación de claves foráneas para la operación normal de la app.
+  // Se hace al FINAL: las migraciones legacy de reconstrucción de tablas (DROP+CREATE)
+  // ya corrieron arriba con FK desactivado (comportamiento por defecto de SQLite), como
+  // requiere el patrón seguro de "table rebuild". A partir de aquí, cada nueva escritura
+  // respeta las FOREIGN KEY declaradas. `PRAGMA foreign_keys` es por-conexión.
+  try {
+    db.pragma('foreign_keys = ON');
+    const fk = db.pragma('foreign_keys', { simple: true });
+    console.log(`Integridad referencial (foreign_keys) = ${fk}`);
+  } catch (e) {
+    console.warn('No se pudo activar PRAGMA foreign_keys:', e.message);
   }
 
   console.log('--- FINAL DE INICIALIZACIÓN DE DB (Base de datos lista) ---');
