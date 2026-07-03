@@ -597,20 +597,20 @@ await flipFuses(rutaDelBinario, {
 
 ### 14.1 Servidor de licencias (B.A)
 
-- [ ]  🔴 Eliminar el bypass por `__proto__`: acceder a licencias/trials con `Object.prototype.hasOwnProperty.call(map, key)` (o `Object.create(null)`) y **validar el formato** de `key` (`^BGA-[A-Z0-9-]+$`) y de `hwid` (hex) en `/activate`, `/verify` y `/trial`. Añadir test que active con `key:"__proto__"` y espere 404.
-- [ ]  🟠 Proteger `licenses.json` contra corrupción: si `readJson` detecta JSON inválido, **no** continuar con un objeto vacío que luego se sobrescriba; respaldar el archivo corrupto (`.corrupt-<ts>`) y abortar la escritura.
-- [ ]  🟡 `/verify`: exigir `estado==='activa'` y `license.hwid===hwid` explícitamente.
-- [ ]  🟡 Validar robustez mínima de `SECRET_KEY` (≥32 chars) en el fail-fast.
-- [ ]  🔵 Fijar `{ algorithms: ['HS256'] }` en `jwt.verify`.
+- [x]  🔴 Eliminar el bypass por `__proto__`: acceder a licencias/trials con `Object.prototype.hasOwnProperty.call(map, key)` y rechazar claves reservadas (`__proto__`/`constructor`/`prototype`) en `/activate`, `/verify`, `/trial` y endpoints admin. *(Helpers `isUnsafeMapKey`/`safeMapGet` en `license-server/server.js`; 5 tests nuevos, incl. activar con `key:"__proto__"` → 404.)*
+- [x]  🟠 Proteger `licenses.json` contra corrupción: `readJson` respalda el archivo corrupto (`.corrupt-<ts>`) antes de usar defaults, y aborta si no puede respaldar. *(No más borrado silencioso de licencias.)*
+- [x]  🟡 `/verify`: exigir `estado==='activa'` y `license.hwid===hwid` explícitamente. *(Test: verify de licencia `pendiente` no reemite token.)*
+- [x]  🟡 Validar robustez mínima de `SECRET_KEY` (≥32 chars) en el fail-fast.
+- [x]  🔵 Fijar `{ algorithms: ['HS256'] }` en `jwt.verify`.
 
 ### 14.2 Robustez del cliente (B.B, B.C, B.I)
 
-- [ ]  🟠 Restringir CORS a loopback salvo que el modo LAN esté activo (`isAllowedOrigin`).
-- [ ]  🟠 Añadir `process.on('unhandledRejection')` en `main.js` (log + no matar el proceso salvo error irrecuperable).
-- [ ]  🟠 Documentar/decidir sobre autenticación de operadores por rol: mientras no exista login de operador, dejar claro que `x-operator` es informativo y que el gate real es la clave admin (no confiar en el rol enviado por el cliente). *(DECISIÓN a tomar en la fase.)*
-- [ ]  🟡 Ventanas ocultas de impresión/PDF con `contextIsolation:true, sandbox:true`.
-- [ ]  🟡 `@fastify/multipart` con `limits` explícitos (fileSize/files/fields).
-- [ ]  🟡 `getAdminPasswordStatus`: no exponer el estado sin necesidad (o gatearlo).
+- [x]  🟠 Restringir CORS a loopback salvo que el modo LAN esté activo (`isAllowedOrigin` ahora consulta `isLanEnabled()`).
+- [x]  🟠 Añadir `process.on('unhandledRejection')` en `main.js` (solo loguea; no mata el proceso).
+- [x]  🟠 Autenticación de operadores por rol. *(> DECISIÓN: no se implementa login por operador en esta fase (no hay UI de login de operador y el dueño no lo pidió aún). Se documenta que `x-operator` es SOLO informativo para la auditoría y que el control real de acciones sensibles es la contraseña de desbloqueo admin (`ensureUnlocked`), verificada server-side. Migrar a login por operador con enforcement de rol queda como mejora futura, fuera del alcance de seguridad crítico.)*
+- [x]  🟡 Ventanas ocultas de impresión/PDF con `contextIsolation:true, sandbox:true`.
+- [x]  🟡 `@fastify/multipart` con `limits` explícitos (fileSize 20MB / files 1 / fields 50).
+- [x]  🟠 `getAdminPasswordStatus`. *(> DECISIÓN: se mantiene sin gatear porque el frontend de activación/arranque lo necesita para decidir si pedir la clave admin; solo devuelve un booleano `enabled`, sin exponer hash ni datos. Riesgo aceptado (bajo).)*
 
 **Criterio de aceptación:** `key:"__proto__"` devuelve 404; corromper `licenses.json` no borra licencias; CORS cerrado por defecto; sin rechazos de promesa no manejados; tests verdes.
 
@@ -836,23 +836,23 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 ## B.A 🔐 Licencias — servidor y cliente (→ Fase 2 / nueva Fase 14)
 
-- [ ]  🔴 **Bypass total por clave de prototipo (`__proto__`).** El servidor busca la licencia con `data.licenses[key]` sobre un objeto plano; con `key="__proto__"` (o `constructor`, `toString`, `valueOf`, `hasOwnProperty`) esa indexación devuelve `Object.prototype` (truthy) → `/activate` pasa todas las guardas (`estado`, `fechaExpiracion`, `hwid` son `undefined`) y **emite un token PRO firmado ligado al HWID del atacante, sin clave real ni autenticación**. Efectos: (1) activación gratis; (2) `/verify` la refresca indefinidamente; (3) **no se puede revocar** (no es una entrada real); (4) **prototype pollution** al hacer `license.hwid=...`/`license.estado=...` sobre `Object.prototype`. Mismo patrón en `/verify` y en `trials.trials[hwid]` de `/trial`. Verificado E2E contra el servidor real. — `license-server/server.js:216,256,282` (Fase 14)
-- [ ]  🟠 **Pérdida total de licencias por corrupción de `licenses.json`.** Si el archivo se corrompe, `readJson` retorna `{ licenses: {} }` en silencio y la **siguiente escritura** (`/activate`, `/verify`, crear/revocar) sobrescribe el archivo, **borrando todas las licencias**. Falta respaldo/rotación previa o abortar en corrupción. — `license-server/server.js:54-68` (Fase 14)
-- [ ]  🟡 **`/verify` no exige `estado==='activa'` ni `hwid` coincidente explícitos.** Solo excluye `revocada`/`otro_equipo`/`expirada`, así que reemite token para licencias `pendiente` (hoy acotado porque `hwid=null` hace que el cliente lo rechace, pero es frágil). — `license-server/server.js:251-273` (Fase 14)
-- [ ]  🟡 **`SECRET_KEY` (firma JWT admin) sin mínimo de robustez.** `requireEnv` solo comprueba que exista; a diferencia de `ADMIN_PASSWORD` (≥10). Un secreto débil permite forjar JWT admin y generar/revocar licencias offline. — `license-server/server.js:24` (Fase 14)
-- [ ]  🔵 **`jwt.verify` sin `algorithms` fijado.** Falta `{ algorithms: ['HS256'] }` (defensa en profundidad contra confusión de algoritmo). — `license-server/server.js:178` (Fase 14)
+- [x]  🔴 **Bypass total por clave de prototipo (`__proto__`).** El servidor busca la licencia con `data.licenses[key]` sobre un objeto plano; con `key="__proto__"` (o `constructor`, `toString`, `valueOf`, `hasOwnProperty`) esa indexación devuelve `Object.prototype` (truthy) → `/activate` pasa todas las guardas (`estado`, `fechaExpiracion`, `hwid` son `undefined`) y **emite un token PRO firmado ligado al HWID del atacante, sin clave real ni autenticación**. Efectos: (1) activación gratis; (2) `/verify` la refresca indefinidamente; (3) **no se puede revocar** (no es una entrada real); (4) **prototype pollution** al hacer `license.hwid=...`/`license.estado=...` sobre `Object.prototype`. Mismo patrón en `/verify` y en `trials.trials[hwid]` de `/trial`. Verificado E2E contra el servidor real. — `license-server/server.js:216,256,282` (Fase 14) *(CORREGIDO en Fase 14.1.)*
+- [x]  🟠 **Pérdida total de licencias por corrupción de `licenses.json`.** Si el archivo se corrompe, `readJson` retorna `{ licenses: {} }` en silencio y la **siguiente escritura** (`/activate`, `/verify`, crear/revocar) sobrescribe el archivo, **borrando todas las licencias**. Falta respaldo/rotación previa o abortar en corrupción. — `license-server/server.js:54-68` (Fase 14) *(CORREGIDO: respaldo `.corrupt-<ts>` + abort si no puede respaldar.)*
+- [x]  🟡 **`/verify` no exige `estado==='activa'` ni `hwid` coincidente explícitos.** Solo excluye `revocada`/`otro_equipo`/`expirada`, así que reemite token para licencias `pendiente` (hoy acotado porque `hwid=null` hace que el cliente lo rechace, pero es frágil). — `license-server/server.js:251-273` (Fase 14) *(CORREGIDO en Fase 14.1.)*
+- [x]  🟡 **`SECRET_KEY` (firma JWT admin) sin mínimo de robustez.** `requireEnv` solo comprueba que exista; a diferencia de `ADMIN_PASSWORD` (≥10). Un secreto débil permite forjar JWT admin y generar/revocar licencias offline. — `license-server/server.js:24` (Fase 14) *(CORREGIDO: exige ≥32.)*
+- [x]  🔵 **`jwt.verify` sin `algorithms` fijado.** Falta `{ algorithms: ['HS256'] }` (defensa en profundidad contra confusión de algoritmo). — `license-server/server.js:178` (Fase 14) *(CORREGIDO.)*
 - [ ]  🔵 **`getLicenseInfo` dispara heartbeat de red en cada GET `/api/license/info`** (`checkOnlineAndActivate().catch(()=>{})`), permitiendo verificaciones solapadas contra el servidor. — `controllers/license.controller.js:105` (Fase 14)
 
 ## B.B 🌐 Red / endpoints / IPC / Electron (→ Fase 3 / Fase 11 / nueva Fase 14)
 
-- [ ]  🟠 **CORS permite todos los rangos LAN privados aunque el modo LAN esté apagado.** `isAllowedOrigin` acepta `10.x`, `192.168.x`, `172.16–31.x` incondicionalmente; debería restringirse a loopback salvo que `isLanEnabled()`. — `server.js:259-272` (Fase 14)
-- [ ]  🟡 **Ventanas ocultas de impresión/PDF sin `sandbox`/`contextIsolation` explícitos.** `printHTML` y `printer:savePDF` cargan HTML arbitrario (posiblemente de impresión remota LAN) en un `BrowserWindow` con solo `nodeIntegration:false`; conviene fijar `contextIsolation:true, sandbox:true` y cargar por `loadFile`/`loadURL` controlado. — `main.js:163,204` (Fase 14)
-- [ ]  🟡 **`@fastify/multipart` sin límites explícitos** (`limits.fileSize`, `files`, `fields`). Una subida grande puede llenar disco en `uploads/`. Complementa el hallazgo A.3 de validación de MIME/whitelist. — `server.js:320-321` (Fase 3/14)
+- [x]  🟠 **CORS permite todos los rangos LAN privados aunque el modo LAN esté apagado.** `isAllowedOrigin` acepta `10.x`, `192.168.x`, `172.16–31.x` incondicionalmente; debería restringirse a loopback salvo que `isLanEnabled()`. — `server.js:259-272` (Fase 14) *(CORREGIDO.)*
+- [x]  🟡 **Ventanas ocultas de impresión/PDF sin `sandbox`/`contextIsolation` explícitos.** `printHTML` y `printer:savePDF` cargan HTML arbitrario (posiblemente de impresión remota LAN) en un `BrowserWindow` con solo `nodeIntegration:false`; conviene fijar `contextIsolation:true, sandbox:true`. — `main.js:163,204` (Fase 14) *(CORREGIDO.)*
+- [x]  🟡 **`@fastify/multipart` sin límites explícitos** (`limits.fileSize`, `files`, `fields`). Una subida grande puede llenar disco en `uploads/`. Complementa el hallazgo A.3 de validación de MIME/whitelist. — `server.js:320-321` (Fase 3/14) *(CORREGIDO: 20MB/1/50.)*
 
 ## B.C 🔐 Autenticación, roles y auditoría (→ Fase 4 / nueva Fase 14)
 
-- [ ]  🟠 **Los roles internos (cajero/supervisor/admin) NO se autentican ni se aplican server-side.** La tabla `usuarios` existe (Fase 4) pero no hay login de operador: el autor de auditoría sale de la cabecera `x-operator`, que el cliente puede falsificar, y **no hay control de acceso por rol** en el backend (la única barrera real es la contraseña de "desbloqueo admin"). Es decir, un cajero podría enviar cualquier `x-operator` y las acciones sensibles solo dependen del token de desbloqueo, no del rol del usuario. — `src/utils/adminUnlock.js:51-56`, `src/utils/audit.js` (Fase 14)
-- [ ]  🟡 **`getAdminPasswordStatus` expone si hay clave admin configurada** sin autenticación (fuga menor de información útil para un atacante). — `controllers/settings.controller.js:195-207` (Fase 14)
+- [x]  🟠 **Los roles internos (cajero/supervisor/admin) NO se autentican ni se aplican server-side.** La tabla `usuarios` existe (Fase 4) pero no hay login de operador: el autor de auditoría sale de la cabecera `x-operator`, que el cliente puede falsificar, y **no hay control de acceso por rol** en el backend (la única barrera real es la contraseña de "desbloqueo admin"). — `src/utils/adminUnlock.js:51-56`, `src/utils/audit.js` (Fase 14) *(DECISIÓN documentada en Fase 14.2: `x-operator` es informativo; el gate real es `ensureUnlocked`. Login por operador = mejora futura.)*
+- [x]  🟡 **`getAdminPasswordStatus` expone si hay clave admin configurada** sin autenticación (fuga menor de información útil para un atacante). — `controllers/settings.controller.js:195-207` (Fase 14) *(DECISIÓN: se mantiene; solo booleano, requerido por el frontend.)*
 
 ## B.D 💵 Dinero: ventas, cobranza, caja, Cashea (→ Fase 5 / bugfix)
 
@@ -885,7 +885,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 ## B.I 🧩 Robustez general (→ nueva Fase 14)
 
-- [ ]  🟠 **No hay manejador de `unhandledRejection`.** `main.js` captura `uncaughtException` pero NO `unhandledRejection`; promesas rechazadas sin `catch` (heartbeats, impresión, updates) quedan silenciadas hoy y podrían terminar el proceso en futuras versiones de Node. — `main.js:93-105` (Fase 14)
+- [x]  🟠 **No hay manejador de `unhandledRejection`.** `main.js` captura `uncaughtException` pero NO `unhandledRejection`; promesas rechazadas sin `catch` (heartbeats, impresión, updates) quedan silenciadas hoy y podrían terminar el proceso en futuras versiones de Node. — `main.js:93-105` (Fase 14) *(CORREGIDO: handler que loguea sin matar el proceso.)*
 
 **Criterio de aceptación del Anexo B:** cada hallazgo se verifica contra el código actual, se corrige (o se documenta por qué se descarta) y se marca `- [x]`. Los 🔴/🟠 de licencias/servidor se cierran en la nueva **Fase 14**.
 

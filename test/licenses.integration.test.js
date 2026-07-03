@@ -114,3 +114,38 @@ test('trial firmado y ligado a HWID', async () => {
   assert.strictEqual(payload.typ, 'trial');
   assert.strictEqual(payload.hwid, hwid);
 });
+
+// ---- Fase 14: anti-bypass por clave de prototipo (__proto__) ----
+test('Fase 14: activar con key "__proto__" NO emite token (404)', async () => {
+  const act = await api(server.baseUrl, '/api/activate', { method: 'POST', body: { key: '__proto__', hwid: 'HWID-PWN-000000' } });
+  assert.strictEqual(act.status, 404);
+  assert.ok(!act.data.token, 'no debe entregar token');
+});
+
+test('Fase 14: activar con key "constructor" NO emite token (404)', async () => {
+  const act = await api(server.baseUrl, '/api/activate', { method: 'POST', body: { key: 'constructor', hwid: 'HWID-PWN-000001' } });
+  assert.strictEqual(act.status, 404);
+  assert.ok(!act.data.token);
+});
+
+test('Fase 14: verify con key "__proto__" es rechazado (404)', async () => {
+  const v = await api(server.baseUrl, '/api/verify', { method: 'POST', body: { key: '__proto__', hwid: 'HWID-PWN-000002' } });
+  assert.strictEqual(v.status, 404);
+  assert.ok(!v.data.token);
+});
+
+test('Fase 14: trial con hwid "__proto__" es rechazado', async () => {
+  const r = await api(server.baseUrl, '/api/trial', { method: 'POST', body: { hwid: '__proto__' } });
+  assert.ok(r.status === 400 || r.status === 403);
+  assert.ok(!r.data || !r.data.token);
+});
+
+test('Fase 14: verify de licencia pendiente (nunca activada) no reemite token', async () => {
+  const token = await loginAdmin();
+  const created = await api(server.baseUrl, '/api/admin/licenses', { method: 'POST', token, body: { plan: 'PRO', dias: 365 } });
+  const key = created.data.licenses[0].key;
+  // Sin activar: estado 'pendiente', hwid null.
+  const v = await api(server.baseUrl, '/api/verify', { method: 'POST', body: { key, hwid: 'HWID-PENDIENTE-0000' } });
+  assert.notStrictEqual(v.status, 200);
+  assert.ok(!v.data.token);
+});

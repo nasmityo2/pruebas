@@ -255,13 +255,15 @@ function isLicensedNow() {
 function invalidateLicenseCache() { _licenseCache = { value: false, at: 0 }; }
 global.__invalidateLicenseGate = invalidateLicenseCache;
 
-// CORS restringido: solo se acepta origen ausente (mismo origen) o de loopback/LAN privada.
+// CORS restringido: se acepta origen ausente (mismo origen) o de loopback.
+// Los rangos LAN privados SOLO se permiten cuando el modo LAN está activado (Fase 14).
 function isAllowedOrigin(origin) {
   if (!origin) return true; // mismo origen / peticiones sin cabecera Origin
   try {
     const host = new URL(origin).hostname;
     if (isLoopbackAddress(host) || host === 'localhost') return true;
-    // Rangos LAN privados (solo relevantes si el modo LAN está activo)
+    // Rangos LAN privados: solo si el modo LAN está explícitamente activo.
+    if (!isLanEnabled()) return false;
     if (/^10\./.test(host)) return true;
     if (/^192\.168\./.test(host)) return true;
     if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
@@ -316,9 +318,16 @@ async function startFastifyServer() {
     return reply;
   });
 
-  // Register Multipart
+  // Register Multipart con límites explícitos (Fase 14): evita llenar disco con
+  // subidas enormes. 20MB por archivo cubre logos, imágenes e importaciones xlsx/csv.
   const multipart = require('@fastify/multipart');
-  await fastify.register(multipart);
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 20 * 1024 * 1024,
+      files: 1,
+      fields: 50,
+    },
+  });
 
   // Register Static files
   const isPkg = !!process.pkg;

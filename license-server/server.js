@@ -22,6 +22,27 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = (process.env.HOST || '127.0.0.1').trim();
 const SECRET_KEY = requireEnv('SECRET_KEY');
+// Fase 14: la firma JWT del panel autentica la generación/revocación de licencias.
+// Un secreto débil permitiría forjar un JWT admin offline; exigir robustez mínima.
+if (SECRET_KEY.length < 32) {
+    console.error('[FATAL] SECRET_KEY debe tener al menos 32 caracteres (usa 48+ bytes aleatorios).');
+    process.exit(1);
+}
+
+// ------------------------------------------------------------------
+// Fase 14: acceso SEGURO a mapas de objetos planos.
+// Buscar con `map[key]` permite que key="__proto__"/"constructor" devuelva
+// Object.prototype (truthy) y se trate como una "licencia"/"trial" real => bypass.
+// Estas helpers usan hasOwnProperty y rechazan claves reservadas del prototipo.
+// ------------------------------------------------------------------
+const RESERVED_MAP_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+function isUnsafeMapKey(k) {
+    return typeof k !== 'string' || k.length === 0 || RESERVED_MAP_KEYS.has(k);
+}
+function safeMapGet(map, key) {
+    if (!map || isUnsafeMapKey(key)) return undefined;
+    return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
+}
 
 // DATA_DIR permite aislar los datos (útil para tests). Por defecto, la carpeta del servidor.
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __dirname;
@@ -59,7 +80,17 @@ function readJson(file, defaultData) {
     try {
         return JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch (e) {
-        console.error(`[WARN] ${path.basename(file)} corrupto, se reinicia con valores por defecto.`);
+        // Fase 14: NO devolver defaults en silencio: la siguiente escritura borraría
+        // todas las licencias/usuarios. Respaldamos el archivo corrupto para no perder
+        // datos y solo entonces seguimos con los valores por defecto.
+        try {
+            const backup = `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+            fs.copyFileSync(file, backup);
+            console.error(`[WARN] ${path.basename(file)} corrupto. Copia preservada en ${path.basename(backup)}.`);
+        } catch (copyErr) {
+            console.error(`[FATAL] ${path.basename(file)} corrupto y no se pudo respaldar: ${copyErr.message}. Se aborta para no perder datos.`);
+            process.exit(1);
+        }
         return JSON.parse(JSON.stringify(defaultData));
     }
 }
@@ -175,7 +206,7 @@ function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
-    jwt.verify(token, SECRET_KEY, (err, user) => {
+    jwt.verify(token, SECRET_KEY, { algorithms: ['HS256'] }, (err, user) => {
         if (err) return res.sendStatus(403);
         req.user = user;
         next();
@@ -213,7 +244,7 @@ apiRouter.post('/activate', activationLimiter, (req, res) => {
     if (String(hwid).length < 8) return res.status(400).json({ ok: false, error: 'HWID inválido.' });
 
     const data = readJson(DATA_FILE, { licenses: {} });
-    const license = data.licenses[key];
+    const license = safeMapGet(data.licenses, key);
     if (!license) {
         logAccess('ACTIVATE_UNKNOWN', { key, hwid, ip: req.ip });
         return res.status(404).json({ ok: false, status: 'desconocida', error: 'Clave de licencia no encontrada.' });
@@ -253,14 +284,18 @@ apiRouter.post('/verify', activationLimiter, (req, res) => {
     if (!key || !hwid) return res.status(400).json({ ok: false, error: 'Faltan datos.' });
 
     const data = readJson(DATA_FILE, { licenses: {} });
-    const license = data.licenses[key];
+    const license = safeMapGet(data.licenses, key);
     if (!license) return res.status(404).json({ ok: false, status: 'desconocida' });
     if (license.estado === 'revocada') {
         logAccess('VERIFY_REVOKED', { key, hwid, ip: req.ip });
         return res.status(403).json({ ok: false, status: 'revocada' });
     }
-    if (license.hwid && license.hwid !== hwid) {
+    // Fase 14: exigir vínculo explícito al equipo y estado activo (no reemitir para 'pendiente').
+    if (license.hwid !== hwid) {
         return res.status(409).json({ ok: false, status: 'otro_equipo' });
+    }
+    if (license.estado !== 'activa') {
+        return res.status(403).json({ ok: false, status: 'desconocida' });
     }
     if (license.fechaExpiracion && new Date(license.fechaExpiracion).getTime() < Date.now()) {
         return res.status(403).json({ ok: false, status: 'expirada' });
@@ -277,9 +312,10 @@ apiRouter.post('/trial', activationLimiter, (req, res) => {
     const { hwid, systemName } = req.body || {};
     if (!hwid || String(hwid).length < 8) return res.status(400).json({ ok: false, error: 'HWID inválido.' });
 
+    if (isUnsafeMapKey(String(hwid))) return res.status(400).json({ ok: false, error: 'HWID inválido.' });
     const trials = readJson(TRIALS_FILE, { trials: {} });
     const now = Date.now();
-    let t = trials.trials[hwid];
+    let t = safeMapGet(trials.trials, hwid);
     if (!t) {
         const expEpoch = Math.floor((now + TRIAL_DURATION_HOURS * 3600 * 1000) / 1000);
         t = { firstStart: new Date().toISOString(), expEpoch, systemName: systemName || '' };
@@ -391,7 +427,7 @@ apiRouter.get('/admin/licenses', authenticateToken, requireAdmin, (req, res) => 
 apiRouter.post('/admin/licenses/revoke', authenticateToken, requireAdmin, (req, res) => {
     const { key } = req.body || {};
     const data = readJson(DATA_FILE, { licenses: {} });
-    const lic = data.licenses[key];
+    const lic = safeMapGet(data.licenses, key);
     if (!lic) return res.status(404).json({ error: 'Licencia no encontrada' });
     lic.estado = 'revocada';
     lic.history = lic.history || [];
@@ -404,7 +440,7 @@ apiRouter.post('/admin/licenses/revoke', authenticateToken, requireAdmin, (req, 
 apiRouter.post('/admin/licenses/reactivate', authenticateToken, requireAdmin, (req, res) => {
     const { key } = req.body || {};
     const data = readJson(DATA_FILE, { licenses: {} });
-    const lic = data.licenses[key];
+    const lic = safeMapGet(data.licenses, key);
     if (!lic) return res.status(404).json({ error: 'Licencia no encontrada' });
     lic.estado = lic.hwid ? 'activa' : 'pendiente';
     lic.history = lic.history || [];
@@ -418,7 +454,7 @@ apiRouter.post('/admin/licenses/reactivate', authenticateToken, requireAdmin, (r
 apiRouter.post('/admin/licenses/unbind', authenticateToken, requireAdmin, (req, res) => {
     const { key } = req.body || {};
     const data = readJson(DATA_FILE, { licenses: {} });
-    const lic = data.licenses[key];
+    const lic = safeMapGet(data.licenses, key);
     if (!lic) return res.status(404).json({ error: 'Licencia no encontrada' });
     lic.hwid = null;
     lic.equipo = null;
@@ -433,7 +469,7 @@ apiRouter.post('/admin/licenses/unbind', authenticateToken, requireAdmin, (req, 
 apiRouter.delete('/admin/licenses', authenticateToken, requireAdmin, (req, res) => {
     const { key } = req.body || {};
     const data = readJson(DATA_FILE, { licenses: {} });
-    if (!data.licenses[key]) return res.status(404).json({ error: 'Licencia no encontrada' });
+    if (!safeMapGet(data.licenses, key)) return res.status(404).json({ error: 'Licencia no encontrada' });
     delete data.licenses[key];
     saveJson(DATA_FILE, data);
     logAccess('LICENSE_DELETE', { key, by: req.user.username });

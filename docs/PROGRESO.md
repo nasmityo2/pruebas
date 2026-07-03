@@ -38,3 +38,32 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   Se corrige en la **Fase 14**.
 
 ---
+
+## Fase 14 — Cierre de auditoría ampliada (Anexo B)
+
+**Estado:** ✅ Completada. **Rama:** `fase-14-auditoria-b`. **Tests:** 41/41 verde.
+
+### 14.1 Servidor de licencias
+- Cerrado el bypass `__proto__`/`constructor`: helpers `isUnsafeMapKey`/`safeMapGet`
+  con `hasOwnProperty` en `/activate`, `/verify`, `/trial` y endpoints admin.
+- `readJson` ahora respalda el archivo corrupto (`.corrupt-<ts>`) y aborta si no puede
+  respaldar (evita borrar todas las licencias en la siguiente escritura).
+- `/verify` exige `estado==='activa'` y `hwid` coincidente.
+- `SECRET_KEY` exige ≥32 caracteres (fail-fast).
+- `jwt.verify` fija `algorithms: ['HS256']`.
+- 5 tests nuevos (incl. `key:"__proto__"` → 404; verify de pendiente no reemite token).
+
+### 14.2 Robustez del cliente
+- CORS: rangos LAN solo si `isLanEnabled()`.
+- `process.on('unhandledRejection')` en `main.js` (loguea, no mata el proceso).
+- Ventanas ocultas de impresión/PDF con `contextIsolation:true, sandbox:true`.
+- `@fastify/multipart` con límites (20MB / 1 archivo / 50 campos).
+
+### Decisiones de la Fase 14
+- **DECISIÓN (roles de operador):** no se implementa login por operador (no hay UI ni
+  requerimiento del dueño aún). `x-operator` queda como dato informativo de auditoría;
+  el control real de acciones sensibles es `ensureUnlocked` (clave admin), server-side.
+- **DECISIÓN (`getAdminPasswordStatus`):** se mantiene público (solo booleano `enabled`);
+  el frontend lo necesita para decidir si pedir la clave admin. Riesgo bajo aceptado.
+
+---
