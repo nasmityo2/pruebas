@@ -1133,10 +1133,17 @@ const updateStock = (req, res) => {
   }
 
   try {
-    const info = db.prepare('UPDATE productos SET stock = stock + ? WHERE id = ?').run(qty, id);
+    // Anexo A A.4: si el ajuste es NEGATIVO, no permitir que el stock quede por debajo de 0.
+    // La guarda `stock + ? >= 0` en el UPDATE evita stock negativo de forma atómica.
+    const info = qty < 0
+      ? db.prepare('UPDATE productos SET stock = stock + ? WHERE id = ? AND stock + ? >= 0').run(qty, id, qty)
+      : db.prepare('UPDATE productos SET stock = stock + ? WHERE id = ?').run(qty, id);
 
     if (info.changes === 0) {
-      return res.status(404).json({ error: 'Producto no encontrado.' });
+      // Distinguir "no existe" de "el ajuste dejaría stock negativo".
+      const exists = db.prepare('SELECT 1 FROM productos WHERE id = ?').get(id);
+      if (!exists) return res.status(404).json({ error: 'Producto no encontrado.' });
+      return res.status(400).json({ error: 'El ajuste dejaría el stock por debajo de 0.' });
     }
 
     const updatedProduct = db.prepare('SELECT stock FROM productos WHERE id = ?').get(id);

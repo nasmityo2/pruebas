@@ -163,7 +163,15 @@ function calculateSalePrices(product, rates) {
 const getRates = () => {
   const ratesList = getRatesStmt.all();
   return ratesList.reduce((obj, rate) => {
-    obj[rate.key] = rate.value;
+    // Anexo A A.4: las tasas pueden estar guardadas como TEXTO (p. ej. bcvUpdater guarda BCV
+    // con `toFixed(8)`), y `calculateInternalCostVes` descarta valores no numéricos (costo 0).
+    // Se coercionan a número aquí; IVA_MODE es texto y se deja tal cual.
+    if (rate.key === 'IVA_MODE') {
+      obj[rate.key] = rate.value;
+    } else {
+      const n = parseFloat(rate.value);
+      obj[rate.key] = Number.isNaN(n) ? rate.value : n;
+    }
     return obj;
   }, {});
 };

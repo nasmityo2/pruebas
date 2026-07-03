@@ -319,6 +319,21 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.4 — Lote 2 (stock y coerción de tasas)
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-dinero2`. **Tests:** 83/83 verde.
+
+- `product.updateStock`: los ajustes negativos usan guarda `stock + ? >= 0` (no deja stock
+  negativo); distingue "producto no existe" de "el ajuste dejaría negativo".
+- `sales.controller.getRates()`: coerciona las tasas a número. Corrige un bug real: `bcvUpdater`
+  guarda `BCV` como TEXTO (`toFixed(8)`), y `calculateInternalCostVes` descartaba valores no
+  numéricos → costo 0 silencioso (precios mal). Ahora se parsea; `IVA_MODE` queda como texto.
+
+> Nota: estos controladores dependen de `better-sqlite3` (nativo de Electron); no se pueden
+> ejercitar en la suite headless (usa `node:sqlite`). Verificados por lectura del código.
+
+---
+
 ## Resumen de la sesión
 
 - **Suite de tests:** 83/83 verde (arrancó en 36; +47 nuevos).
