@@ -200,10 +200,10 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 
 ### Refuerzos posteriores desde el anexo de blindaje
 
-- [ ]  🟠 **Añadir campo `k` (material de clave) y `jti` al token firmado**, para habilitar el cifrado ligado a licencia y el anti-replay (ver Fase 11.6 y 11.5).
-- [ ]  🟠 **Bajar `TOKEN_GRACE_DAYS` a 3–7 días** para que la revocación remota se propague pronto (ver Fase 11.3).
-- [ ]  🟠 **Añadir detección de anomalías por HWID/IP** en el servidor (mismo HWID desde muchas IPs o a alta frecuencia → alerta/limitar).
-- [ ]  🟡 **Añadir headers de seguridad (helmet)** al servidor de licencias.
+- [x]  🟠 **Añadir campo `k` (material de clave) y `jti` al token firmado**, para habilitar el cifrado ligado a licencia y el anti-replay (ver Fase 11.6 y 11.5). *(Servidor: el token incluye `jti` único por emisión y `k` (32 bytes por-licencia, generado al activar). El CONSUMO en cliente (anti-replay 11.5, cifrado de recursos 11.6) queda pendiente en esas sub-fases. Test verifica presencia y unicidad de `jti` + estabilidad de `k`.)*
+- [x]  🟠 **Bajar `TOKEN_GRACE_DAYS` a 3–7 días** para que la revocación remota se propague pronto (ver Fase 11.3). *(Default bajado de 7 a 5.)*
+- [x]  🟠 **Añadir detección de anomalías por HWID/IP** en el servidor (mismo HWID desde muchas IPs o a alta frecuencia → alerta/limitar). *(`trackAnomaly` por clave: ≥5 IPs distintas en 1h → `ANOMALY_MANY_IPS` en el access log.)*
+- [x]  🟡 **Añadir headers de seguridad (helmet)** al servidor de licencias. *(Cabeceras equivalentes sin dependencia nueva: nosniff, X-Frame-Options, Referrer-Policy, COOP, etc. + límite de body 256kb.)*
 
 **Commit sugerido:** `feat(fase-2): sistema de licencias con activación online, HWID y revocación remota`
 
@@ -700,7 +700,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [x]  🟠 `generatedLicense` (clave PRO completa) se persiste en claro en `activation_tokens.json`. — *(Fase 2: `activation_tokens.json` eliminado; no hay tokens de canje.)*
 - [~]  🟡 API key comparada con `===`; login enumera usuarios por timing. — *(Fase 2: API key eliminada; login devuelve el mismo error para usuario/clave inválidos (sin enumeración). No se usa `timingSafeEqual` explícito.)*
 - [x]  🟡 `readJson` hace `JSON.parse` sin try/catch → un JSON corrupto tumba el proceso (DoS). — *(Fase 2: `readJson` ahora captura el error y reinicia con valores por defecto.)*
-- [ ]  🟡 Sin headers de seguridad (helmet) ni dependencias de hardening; duración por defecto de tokens/licencias ~3650 días. — `license-server/server.js`, `license-server/package.json`
+- [x]  🟡 Sin headers de seguridad (helmet) ni dependencias de hardening; duración por defecto de tokens/licencias ~3650 días. — `license-server/server.js`, `license-server/package.json` *(Fase 2 refuerzo: cabeceras de seguridad añadidas (sin dependencia), body limitado a 256kb, `TOKEN_GRACE_DAYS` del token = 5 días; la expiración dura de la licencia la fija el admin al crearla.)*
 
 ## A.3 🌐 Red y endpoints sin autenticación (→ Fase 3)
 

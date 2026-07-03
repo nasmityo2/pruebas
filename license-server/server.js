@@ -66,7 +66,8 @@ const PUBLIC_KEY = fs.existsSync(PUBLIC_KEY_PATH)
     : crypto.createPublicKey(PRIVATE_KEY).export({ type: 'spki', format: 'pem' });
 
 // Ventana de gracia offline del token (días). Tras vencer el token, el cliente exige re-verificación online.
-const TOKEN_GRACE_DAYS = parseInt(process.env.TOKEN_GRACE_DAYS || '7', 10);
+// Fase 2 refuerzo / 11.3: bajado de 7 a 5 para que la revocación remota se propague antes.
+const TOKEN_GRACE_DAYS = parseInt(process.env.TOKEN_GRACE_DAYS || '5', 10);
 const TRIAL_DURATION_HOURS = parseInt(process.env.TRIAL_DURATION_HOURS || '72', 10);
 
 // ------------------------------------------------------------------
@@ -146,9 +147,14 @@ function issueLicenseToken(license) {
     const hardExp = license.fechaExpiracion ? Math.floor(new Date(license.fechaExpiracion).getTime() / 1000) : null;
     let exp = now + TOKEN_GRACE_DAYS * 24 * 3600;
     if (hardExp && hardExp < exp) exp = hardExp; // nunca exceder la expiración real
+    // Fase 2 refuerzo / 11.5-11.6:
+    // - jti: id único por token (anti-replay: el cliente puede rechazar tokens repetidos/viejos).
+    // - k: material de clave por-licencia (habilita el cifrado de recursos ligado a licencia).
     return signToken({
         v: 1, typ: 'license', key: license.key, hwid: license.hwid,
         plan: license.plan || 'PRO', iat: now, exp,
+        jti: crypto.randomUUID(),
+        k: license.k || null,
     });
 }
 function issueTrialToken(hwid, expEpoch) {
@@ -176,9 +182,39 @@ function generateLicenseKey() {
 // ------------------------------------------------------------------
 const corsOrigin = process.env.PANEL_ORIGIN || true;
 app.use(cors({ origin: corsOrigin }));
-app.use(bodyParser.json());
+// Fase 2 refuerzo / A.2: cabeceras de seguridad básicas (equivalente ligero a helmet,
+// sin añadir dependencia). Endurece el panel y las respuestas del servidor de licencias.
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-DNS-Prefetch-Control', 'off');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    next();
+});
+app.use(bodyParser.json({ limit: '256kb' }));
 app.use(express.static('public'));
 app.use('/admin-licencias', express.static('public'));
+
+// Fase 2 refuerzo / Anexo A: detección simple de anomalías por clave (mismo key/hwid
+// verificándose desde MUCHAS IPs distintas en poco tiempo => posible clonado/trial farming).
+const anomalyMap = new Map(); // key -> { ips:Set, first:epochMs }
+const ANOMALY_WINDOW_MS = 60 * 60 * 1000; // 1h
+const ANOMALY_IP_THRESHOLD = 5;
+function trackAnomaly(key, ip) {
+    if (!key) return;
+    const now = Date.now();
+    let e = anomalyMap.get(key);
+    if (!e || now - e.first > ANOMALY_WINDOW_MS) {
+        e = { ips: new Set(), first: now };
+        anomalyMap.set(key, e);
+    }
+    e.ips.add(ip || 'unknown');
+    if (e.ips.size >= ANOMALY_IP_THRESHOLD) {
+        logAccess('ANOMALY_MANY_IPS', { key, distinctIps: e.ips.size, windowMs: ANOMALY_WINDOW_MS });
+    }
+}
 
 // Rate limiting simple en memoria para endpoints públicos sensibles
 const rateBuckets = new Map();
@@ -261,6 +297,11 @@ apiRouter.post('/activate', activationLimiter, (req, res) => {
         return res.status(409).json({ ok: false, status: 'otro_equipo', error: 'La licencia ya está activada en otro equipo.' });
     }
 
+    trackAnomaly(key, req.ip);
+
+    // Material de clave por-licencia (Fase 11.6): se genera una vez, al activar.
+    if (!license.k) license.k = crypto.randomBytes(32).toString('hex');
+
     // Vincular al equipo (1 licencia = 1 equipo)
     license.hwid = hwid;
     license.estado = 'activa';
@@ -300,6 +341,8 @@ apiRouter.post('/verify', activationLimiter, (req, res) => {
     if (license.fechaExpiracion && new Date(license.fechaExpiracion).getTime() < Date.now()) {
         return res.status(403).json({ ok: false, status: 'expirada' });
     }
+    trackAnomaly(key, req.ip);
+    if (!license.k) license.k = crypto.randomBytes(32).toString('hex');
     license.lastCheck = new Date().toISOString();
     saveJson(DATA_FILE, data);
     const token = issueLicenseToken(license);
