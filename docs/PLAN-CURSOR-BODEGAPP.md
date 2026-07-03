@@ -738,8 +738,8 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟡 (verificar) Venta con `estado_pago === 'PAGADO'` pero pendiente > 0.01: se advierte pero no se corrige el estado en BD. — `controllers/sales.controller.js:300-305`
 - [ ]  🟡 Cashea: `PagarCuota()` y `createCasheaVenta()` sin transacción ni validación de existencia/duplicados de la cuota/venta. — `controllers/cashea.controller.js:5-37,71-92`
 - [x]  🟡 `client.voidPayment()` hace `DELETE FROM abonos` físico pese a existir columnas `anulado`/`anulado_en` (rompe soft-delete y auditoría). — `controllers/client.controller.js:648-650` *(Corregido: ahora soft-delete (`anulado=1`, `anulado_en`, `motivo_anulacion`); idempotente. Test en `db.logic.test.js`.)*
-- [ ]  🟡 `product.updateStock()` permite ajustes negativos sin piso 0 ni transacción. — `controllers/product.controller.js:1142-1148`
-- [ ]  🟡 Inconsistencia de tasas: `sales.controller.getRates()` NO hace `parseFloat` mientras `product/presentation/client` sí; con la guarda `typeof === 'number'` de `calculateInternalCostVes`, si una tasa llega como texto el costo se vuelve 0 silenciosamente. — `controllers/sales.controller.js:162-168,109-133`
+- [x]  🟡 `product.updateStock()` permite ajustes negativos sin piso 0 ni transacción. — `controllers/product.controller.js:1142-1148` *(Corregido: ajuste negativo con guarda `stock + ? >= 0`; distingue "no existe" de "quedaría negativo".)*
+- [x]  🟡 Inconsistencia de tasas: `sales.controller.getRates()` NO hace `parseFloat` mientras `product/presentation/client` sí; con la guarda `typeof === 'number'` de `calculateInternalCostVes`, si una tasa llega como texto el costo se vuelve 0 silenciosamente. — `controllers/sales.controller.js:162-168,109-133` *(Corregido: `getRates()` coerciona a número (BCV lo guarda bcvUpdater como texto con toFixed); IVA_MODE se deja como texto.)*
 
 ## A.5 🗄️ Base de datos y migraciones (→ Fase 5)
 
