@@ -51,6 +51,30 @@ test('LAN: detección de loopback', () => {
   assert.ok(!network.isLoopbackAddress('192.168.1.20'));
 });
 
+// ---------- network.json firmado (A.3) ----------
+test('network.json: guardar/cargar respeta la firma; manipular lanEnabled se ignora (fail-safe)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { getDataBasePath } = require('../src/utils/settings');
+  const file = path.join(getDataBasePath(), 'network.json');
+  const backup = fs.existsSync(file) ? fs.readFileSync(file) : null;
+  try {
+    // Guardar lanEnabled=true de forma legítima (firmado) y verificar que se carga true.
+    network.saveNetworkConfig({ lanEnabled: true });
+    assert.strictEqual(network.isLanEnabled(), true);
+
+    // Manipular el archivo a mano (cambiar lanEnabled sin firma válida) => debe ignorarse.
+    fs.writeFileSync(file, JSON.stringify({ lanEnabled: true, _sig: 'firma-falsa' }));
+    assert.strictEqual(network.isLanEnabled(), false, 'firma inválida => LAN desactivada');
+
+    // Volver a false legítimamente.
+    network.saveNetworkConfig({ lanEnabled: false });
+    assert.strictEqual(network.isLanEnabled(), false);
+  } finally {
+    if (backup) fs.writeFileSync(file, backup); else { try { fs.unlinkSync(file); } catch (_) {} }
+  }
+});
+
 // ---------- Admin unlock ----------
 test('adminUnlock: emitir/verificar + extraer de cookie', () => {
   const { token } = adminUnlock.issueUnlock();

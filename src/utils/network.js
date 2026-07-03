@@ -11,25 +11,53 @@ const { getDataBasePath } = require('./settings');
 const NETWORK_FILE = path.join(getDataBasePath(), 'network.json');
 const DEFAULTS = { lanEnabled: false };
 
+// A.3: el archivo network.json controla si el backend se expone en la LAN. Se FIRMA con HMAC
+// (secreto del cliente) para que editarlo a mano no active la LAN. Si la firma no valida
+// (archivo manipulado o de otra instalación), se ignora y se cae a lanEnabled=false (fail-safe).
+function networkHmacKey() {
+  try {
+    const { HIST_SECRET } = require('../config');
+    return crypto.createHash('sha256').update('network|' + HIST_SECRET).digest();
+  } catch (_) {
+    return null; // sin secreto no se puede firmar/verificar => se tratará como no confiable
+  }
+}
+function signConfig(cfg) {
+  const key = networkHmacKey();
+  if (!key) return null;
+  const body = JSON.stringify({ lanEnabled: cfg.lanEnabled === true });
+  return crypto.createHmac('sha256', key).update(body).digest('hex');
+}
+
 // TTL del token de conexión móvil (minutos).
 const LAN_TOKEN_TTL_MS = parseInt(process.env.LAN_TOKEN_TTL_MIN || '15', 10) * 60 * 1000;
 
 function loadNetworkConfig() {
   try {
     if (!fs.existsSync(NETWORK_FILE)) {
-      fs.writeFileSync(NETWORK_FILE, JSON.stringify(DEFAULTS, null, 2));
       return { ...DEFAULTS };
     }
     const cfg = JSON.parse(fs.readFileSync(NETWORK_FILE, 'utf8'));
-    return { ...DEFAULTS, ...cfg };
+    // Verificar la firma HMAC. Si no coincide, el archivo fue manipulado (o es de otra
+    // instalación): se ignora `lanEnabled` y se usa el valor seguro por defecto (false).
+    const expected = signConfig(cfg);
+    if (!expected || !cfg._sig || cfg._sig !== expected) {
+      if (cfg.lanEnabled === true) {
+        console.warn('[NETWORK] Firma de network.json inválida: se ignora lanEnabled (fail-safe).');
+      }
+      return { ...DEFAULTS };
+    }
+    return { lanEnabled: cfg.lanEnabled === true };
   } catch (e) {
     return { ...DEFAULTS };
   }
 }
 
 function saveNetworkConfig(cfg) {
-  const merged = { ...loadNetworkConfig(), ...cfg };
-  fs.writeFileSync(NETWORK_FILE, JSON.stringify(merged, null, 2));
+  const current = loadNetworkConfig();
+  const merged = { lanEnabled: (cfg.lanEnabled !== undefined ? cfg.lanEnabled === true : current.lanEnabled) };
+  const toWrite = { ...merged, _sig: signConfig(merged) };
+  fs.writeFileSync(NETWORK_FILE, JSON.stringify(toWrite, null, 2));
   return merged;
 }
 

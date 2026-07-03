@@ -705,7 +705,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 ## A.3 🌐 Red y endpoints sin autenticación (→ Fase 3)
 
 - [x]  🔴 **`ensureUnlocked` sin rate limiting ni límite de intentos.** El Map de tokens de desbloqueo admin (`adminUnlock.js:9`) permite brute-force del header `x-admin-unlock` o la cookie `adminUnlock` sin restricción de velocidad. — `src/utils/adminUnlock.js:64-76` *(Corregido: `verifyAdminPassword` limita intentos fallidos por IP (`isLockedOut`/`recordFailure`, 10 fallos/5 min → 429); acertar resetea. El token de desbloqueo es de 24 bytes aleatorios (no adivinable por fuerza bruta práctica). Test añadido.)*
-- [ ]  🟠 **`network.json` en texto plano, editable por el usuario.** El archivo que controla `lanEnabled` está en `%APPDATA%/network.json` sin firma ni cifrado. Un atacante con acceso a los archivos puede activar LAN sin permiso. — `src/utils/network.js:11-34`
+- [x]  🟠 **`network.json` en texto plano, editable por el usuario.** El archivo que controla `lanEnabled` está en `%APPDATA%/network.json` sin firma ni cifrado. Un atacante con acceso a los archivos puede activar LAN sin permiso. — `src/utils/network.js:11-34` *(Corregido: `network.json` se FIRMA con HMAC (secreto del cliente). Si la firma no valida (editado a mano), se ignora `lanEnabled` y se cae a `false` (fail-safe). Test añadido.)*
 
 > Nota: `0.0.0.0`, CORS `origin:true` y firewall 53050–53060 ya están contemplados en la Fase 3. Aquí se listan endpoints concretos sin auth que faltan endurecer.
 
@@ -720,7 +720,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [x]  🟠 `preload.js` expone `invoke/send/receive` genéricos sin whitelist de canales; el renderer puede invocar cualquier handler IPC (p. ej. `app:restart`). — `preload.js:5-15` *(Fase 11.9: whitelist explícita.)*
 - [~]  🟠 `bcvUpdater` usa `rejectUnauthorized: false` en `https.get` al scrapear BCV (MITM posible). — `src/services/bcvUpdater.js:21` *(Fase 1: se quitó del fallback parametrizado; el scraper directo de bcv.org.ve lo conserva por los problemas de certificado del sitio gubernamental. Pendiente evaluar.)*
 - [x]  🟡 El error handler global filtra `error.message` y `error.name` al cliente. — `server.js:308-315` *(Fase 11.9: no se filtran en producción.)*
-- [ ]  🔵 No hay Electron Fuses configurados (`RunAsNode`, `EnableNodeCliInspectArguments`, etc.). Positivo: `contextIsolation:true` y `nodeIntegration:false` ya están bien — no tocar. — `main.js`
+- [~]  🔵 No hay Electron Fuses configurados (`RunAsNode`, `EnableNodeCliInspectArguments`, etc.). Positivo: `contextIsolation:true` y `nodeIntegration:false` ya están bien — no tocar. — `main.js` *(Fase 13 preparada: `scripts/apply-fuses.js` listo; se aplican al empaquetar en el entorno de release. Ver `docs/DISTRIBUCION.md` §6.)*
 
 ## A.4 💵 Ventas, cobranza y dinero — backend (→ Fase 5 / bugfix)
 
