@@ -181,4 +181,6 @@ module.exports = {
   readLicenseCache,
   clearLicenseCache,
   getAppStatus,
+  // Fase 12: la misma clave pública embebida se usa para verificar la firma de updates.
+  getPublicKey: () => PUBLIC_KEY,
 };

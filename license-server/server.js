@@ -520,16 +520,22 @@ apiRouter.delete('/admin/licenses', authenticateToken, requireAdmin, (req, res) 
 });
 
 apiRouter.post('/update/publish', authenticateToken, requireAdmin, (req, res) => {
-    const { version, downloadUrl, mandatory, changelog, description } = req.body || {};
+    const { version, downloadUrl, mandatory, changelog, description, sha256, signature } = req.body || {};
     if (!version || !downloadUrl) return res.status(400).json({ error: 'Faltan datos' });
+    // Fase 12: exigir hash + firma del binario para que el cliente pueda verificarlo (anti-RCE).
+    if (!sha256 || !signature) {
+        return res.status(400).json({ error: 'Faltan sha256 y signature del binario (requeridos para publicar una actualización firmada).' });
+    }
     const updateInfo = {
         version, downloadUrl,
+        sha256, signature,
         mandatory: mandatory || false,
         changelog: changelog || [],
         description: description || '',
         releaseDate: new Date().toISOString(),
     };
     saveJson(UPDATE_INFO_FILE, updateInfo);
+    logAccess('UPDATE_PUBLISH', { by: req.user.username, version });
     res.json({ success: true, message: 'Actualización publicada', data: updateInfo });
 });
 

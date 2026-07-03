@@ -220,3 +220,21 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   clave pública decodificada validan un token firmado de extremo a extremo.
 
 ---
+
+## Fase 12 — Actualizaciones firmadas (anti-RCE)
+
+**Estado:** ✅ Completada. **Rama:** `fase-12-updates`. **Tests:** 74/74 verde.
+
+- Nuevo `src/security/updateVerify.js` (puro): `sha256Hex`, `verifySignature`, `verifyUpdateFile`.
+  4 tests (acepta binario correcto; rechaza hash manipulado, firma de otra clave, faltantes).
+- `executeUpdate` verifica HASH + FIRMA del `.exe` con la clave pública embebida ANTES de
+  `spawn`; si falla, borra el archivo y responde 400. Cierra la cadena RCE (A.2/A.3 🔴).
+- `downloadUpdate` ya no acepta una URL arbitraria del body: solo la `downloadUrl` publicada
+  por el dueño (server-verified vía heartbeat) y que traiga sha256+firma.
+- `/update/publish` (servidor) EXIGE `sha256`+`signature` y audita `UPDATE_PUBLISH`.
+- `scripts/sign-update.js`: herramienta del dueño para firmar el binario en cada release.
+
+- **DECISIÓN:** el registro en la auditoría LOCAL del cliente al aplicar la actualización se
+  difiere (necesita runtime/GUI); la publicación sí queda auditada en el servidor.
+
+---
