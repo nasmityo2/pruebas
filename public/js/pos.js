@@ -672,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="flex items-center">
           ${imgHtml}
           <div>
-            <span class="font-medium text-gray-800">${product.nombre}</span>
+            <span class="font-medium text-gray-800">${escapeHtml(product.nombre)}</span>
             <span class="text-xs text-green-600 ml-2">(Stock: ${product.stock} ${stockUnit})</span>
           </div>
         </div>
@@ -717,10 +717,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         pButton.innerHTML = `
           <div>
-            <span class="font-medium text-gray-700">${product.nombre}</span>
-            <span class="text-xs text-gray-500 ml-1">- ${pres.nombre || 'Presentación'}</span>
+            <span class="font-medium text-gray-700">${escapeHtml(product.nombre)}</span>
+            <span class="text-xs text-gray-500 ml-1">- ${escapeHtml(pres.nombre || 'Presentación')}</span>
             <span class="text-[11px] text-green-600 ml-2">
-              (Stock aprox: ${maxByStock} ${pres.nombre || ''})
+              (Stock aprox: ${maxByStock} ${escapeHtml(pres.nombre || '')})
             </span>
           </div>
           <div class="text-right">

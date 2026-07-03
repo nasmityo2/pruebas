@@ -177,21 +177,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- Left: Client Info -->
                     <div class="flex-1 flex gap-4 min-w-0">
                         <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-300 font-bold text-xl uppercase">
-                            ${client.nombre.charAt(0)}
+                            ${escapeHtml(client.nombre.charAt(0))}
                         </div>
                         <div class="min-w-0">
-                            <h3 class="text-lg font-bold text-gray-900 dark:text-white truncate">${client.nombre}</h3>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white truncate">${escapeHtml(client.nombre)}</h3>
                             <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 <span class="flex items-center gap-1">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                                    ${client.cedula ? 'C.I. ' + client.cedula : 'Sin C.I.'}
+                                    ${client.cedula ? 'C.I. ' + escapeHtml(client.cedula) : 'Sin C.I.'}
                                 </span>
                                 <span class="flex items-center gap-1">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                                    ${client.telefono || 'Sin Tlf'}
+                                    ${escapeHtml(client.telefono || 'Sin Tlf')}
                                 </span>
                             </div>
-                            ${client.direccion ? `<p class="text-xs text-gray-400 mt-1 truncate max-w-md">${client.direccion}</p>` : ''}
+                            ${client.direccion ? `<p class="text-xs text-gray-400 mt-1 truncate max-w-md">${escapeHtml(client.direccion)}</p>` : ''}
                         </div>
                     </div>
 
