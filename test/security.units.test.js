@@ -60,6 +60,17 @@ test('adminUnlock: emitir/verificar + extraer de cookie', () => {
   assert.strictEqual(adminUnlock.operatorFromReq({ headers: {} }), 'sistema');
 });
 
+// ---------- Anti fuerza-bruta del desbloqueo admin (A.3) ----------
+test('adminUnlock: bloquea la IP tras MAX_FAILS intentos y se resetea al acertar', () => {
+  const ip = '10.0.0.99';
+  adminUnlock.resetFailures(ip);
+  assert.ok(!adminUnlock.isLockedOut(ip));
+  for (let i = 0; i < adminUnlock.ADMIN_UNLOCK_MAX_FAILS; i++) adminUnlock.recordFailure(ip);
+  assert.ok(adminUnlock.isLockedOut(ip), 'debe quedar bloqueada tras el máximo de fallos');
+  adminUnlock.resetFailures(ip);
+  assert.ok(!adminUnlock.isLockedOut(ip), 'un acierto/limpieza resetea el bloqueo');
+});
+
 // ---------- Hash admin (bcrypt) ----------
 test('auth: hashPassword produce bcrypt y compara bien', () => {
   const h = authUtil.hashPassword('clave-super-1');

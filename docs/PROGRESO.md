@@ -351,9 +351,19 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.3 — Endpoints sin auth + fuerza bruta de desbloqueo admin
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-a3`. **Tests:** 84/84 verde.
+
+- `save-token`/`remove-token` de nube ahora exigen `ensureUnlocked` (clave admin).
+- `verifyAdminPassword` limita intentos por IP (10 fallos / 5 min → 429; acierto resetea),
+  con `isLockedOut`/`recordFailure`/`resetFailures` en `adminUnlock.js`. Test añadido.
+
+---
+
 ## Resumen de la sesión
 
-- **Suite de tests:** 83/83 verde (arrancó en 36; +47 nuevos).
+- **Suite de tests:** 84/84 verde (arrancó en 36; +48 nuevos).
 - **`npm run check:secrets`:** limpio.
 - **Módulos de seguridad nuevos** (`src/security/`): `clock`, `token`, `offline`, `hwid`,
   `resourceCrypto`, `watermark`, `updateVerify`, `integrity` — todos con tests puros.

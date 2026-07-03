@@ -1,6 +1,6 @@
 const { loadSettings, saveSettings } = require('../src/utils/settings');
 const { hashPassword, verifyPassword, isLegacyAdminHash } = require('../src/utils/auth');
-const { issueUnlock, ADMIN_UNLOCK_TTL_MS, operatorFromReq } = require('../src/utils/adminUnlock');
+const { issueUnlock, ADMIN_UNLOCK_TTL_MS, operatorFromReq, isLockedOut, recordFailure, resetFailures } = require('../src/utils/adminUnlock');
 const { logAction } = require('../src/utils/audit');
 
 const getAuthStatus = (req, res) => {
@@ -59,12 +59,19 @@ const verifyAdminPassword = (req, res) => {
     if (!password) {
         return res.status(400).json({ error: 'Se requiere contraseña.' });
     }
+    // A.3: límite de intentos por IP contra fuerza bruta del desbloqueo admin.
+    if (isLockedOut(req.ip)) {
+        logAction({ usuario: operatorFromReq(req), accion: 'ADMIN_UNLOCK_LOCKED', entidad: 'auth', ip: req.ip });
+        return res.status(429).json({ error: 'Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.' });
+    }
     try {
         const isVerified = verifyPassword(password);
         if (!isVerified) {
+            recordFailure(req.ip);
             logAction({ usuario: operatorFromReq(req), accion: 'ADMIN_UNLOCK_FAIL', entidad: 'auth', ip: req.ip });
             return res.status(403).json({ error: 'Contraseña incorrecta.' });
         }
+        resetFailures(req.ip);
         // Emitir desbloqueo admin de corta duración (cookie HttpOnly del mismo origen).
         const { token } = issueUnlock();
         res.setHeader('Set-Cookie', `adminUnlock=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.floor(ADMIN_UNLOCK_TTL_MS / 1000)}`);

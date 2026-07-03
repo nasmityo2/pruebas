@@ -27,6 +27,33 @@ function verifyUnlock(token) {
   return !!exp && exp >= Date.now();
 }
 
+// ---- Anti fuerza-bruta de la contraseña admin (A.3) ----
+// Límite de intentos fallidos por IP con ventana deslizante y bloqueo temporal.
+const MAX_FAILS = parseInt(process.env.ADMIN_UNLOCK_MAX_FAILS || '10', 10);
+const FAIL_WINDOW_MS = parseInt(process.env.ADMIN_UNLOCK_FAIL_WINDOW_SEC || '300', 10) * 1000;
+const failByIp = new Map(); // ip -> { count, first }
+
+function _fkey(ip) { return String(ip || 'unknown'); }
+
+function isLockedOut(ip) {
+  const e = failByIp.get(_fkey(ip));
+  if (!e) return false;
+  if (Date.now() - e.first > FAIL_WINDOW_MS) { failByIp.delete(_fkey(ip)); return false; }
+  return e.count >= MAX_FAILS;
+}
+
+function recordFailure(ip) {
+  const k = _fkey(ip);
+  const now = Date.now();
+  let e = failByIp.get(k);
+  if (!e || now - e.first > FAIL_WINDOW_MS) e = { count: 0, first: now };
+  e.count += 1;
+  failByIp.set(k, e);
+  return e.count;
+}
+
+function resetFailures(ip) { failByIp.delete(_fkey(ip)); }
+
 function parseCookie(cookieHeader, name) {
   if (!cookieHeader) return null;
   for (const part of cookieHeader.split(';')) {
@@ -81,5 +108,9 @@ module.exports = {
   ensureUnlocked,
   tokenFromReq,
   operatorFromReq,
+  isLockedOut,
+  recordFailure,
+  resetFailures,
   ADMIN_UNLOCK_TTL_MS: TTL_MS,
+  ADMIN_UNLOCK_MAX_FAILS: MAX_FAILS,
 };
