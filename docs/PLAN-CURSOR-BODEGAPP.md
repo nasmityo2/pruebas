@@ -527,8 +527,8 @@ function deriveResourceKey(hwid, tokenPayload) {
 
 ### 13.1 Electron Fuses (endurecer el runtime del binario)
 
-- [ ]  🟠 Integrar `@electron/fuses` en el pipeline de empaquetado y **desactivar**: `RunAsNode`, `EnableNodeOptionsEnvironmentVariable`, `EnableNodeCliInspectArguments`. **Activar**: `OnlyLoadAppFromAsar`.
-- [ ]  🟡 Evaluar `EnableEmbeddedAsarIntegrityValidation` — **verificar soporte en Electron 22.3.27 sobre Windows**; si no está soportado en esta versión/plataforma, apoyarse en el self-check propio de la Fase 11.8 (que es el que garantiza la integridad en Win7/ia32).
+- [~]  🟠 Integrar `@electron/fuses` en el pipeline de empaquetado y **desactivar**: `RunAsNode`, `EnableNodeOptionsEnvironmentVariable`, `EnableNodeCliInspectArguments`. **Activar**: `OnlyLoadAppFromAsar`. *(PREPARADO: `scripts/apply-fuses.js` listo; se ejecuta en el entorno de release tras empaquetar. No se engancha al build de dev. Ver `docs/DISTRIBUCION.md` §6.)*
+- [~]  🟡 Evaluar `EnableEmbeddedAsarIntegrityValidation` — **verificar soporte en Electron 22.3.27 sobre Windows**; si no está soportado en esta versión/plataforma, apoyarse en el self-check propio de la Fase 11.8 (que es el que garantiza la integridad en Win7/ia32). *(DECISIÓN: se usa el self-check propio (11.8, ya funcionando en producción) como garantía de integridad portable; el fuse de asar-integrity se evaluará en la VM de release.)*
 
 ```js
 // scripts/apply-fuses.js (ilustrativo, correr en afterPackage)
@@ -564,9 +564,9 @@ await flipFuses(rutaDelBinario, {
 
 ### 13.4 Firma de integridad del build + anti-secretos
 
-- [ ]  🟠 Generar el manifiesto de hashes firmado que consume el self-check de la Fase 11.8, como paso del build.
-- [ ]  🔴 Reforzar el guardián anti-secretos (ya existe `scripts/check-no-secrets.js` en Fase 10): que además falle si detecta `.js` en claro de módulos que debían ir como `.jsc`, o `.env`, `*.key`, `*.pem`, `scratch/` (cerrar A.9).
-- [ ]  🟠 `forge.config.js`: excluir del empaquetado `.env`, `*.key`, `*.pem`, `scratch/`, `license-server/` (cerrar A.9).
+- [x]  🟠 Generar el manifiesto de hashes firmado que consume el self-check de la Fase 11.8, como paso del build. *(`scripts/gen-integrity-manifest.js`; documentado en el checklist de release.)*
+- [~]  🔴 Reforzar el guardián anti-secretos (ya existe `scripts/check-no-secrets.js` en Fase 10): que además falle si detecta `.js` en claro de módulos que debían ir como `.jsc`, o `.env`, `*.key`, `*.pem`, `scratch/` (cerrar A.9). *(El guard ya aborta con `.env`/`.key`/`.pem`/`scratch`/DB/tokens. La comprobación específica de "`.js` en claro que debía ir como `.jsc`" se añade cuando se implemente bytenode (13.2), en el entorno de release.)*
+- [x]  🟠 `forge.config.js`: excluir del empaquetado `.env`, `*.key`, `*.pem`, `scratch/`, `license-server/` (cerrar A.9). *(Ya excluidos vía `scripts/packaging-ignore.js`; verificado.)*
 
 **Criterio:** el build no incluye secretos ni fuente en claro de módulos sensibles; el manifiesto de integridad se genera y verifica.
 
