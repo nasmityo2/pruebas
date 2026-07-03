@@ -87,3 +87,22 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   la semántica con node:sqlite en la suite.
 
 ---
+
+## Anexo A — Bugs de dinero (subconjunto seguro y testeable)
+
+**Estado:** ✅ Lote 1 completado. **Rama:** `fase-anexoA-dinero`. **Tests:** 45/45 verde.
+
+- 🔴 Stock negativo (A.4): `processSaleTransaction` ahora descuenta con
+  `UPDATE ... WHERE id=? AND stock>=?`; si no puede, revierte la venta. Evita stock
+  negativo por líneas duplicadas del carrito o carreras.
+- 🟡 `voidPayment` (A.4 + regla global): dejó de borrar físicamente el abono; ahora es
+  soft-delete (`anulado=1`, `anulado_en`, `motivo_anulacion`), idempotente. El recálculo
+  ya filtra `COALESCE(anulado,0)=0`, así que la deuda se recalcula correctamente.
+
+- **DECISIÓN (alcance):** los otros bugs de dinero de A.4 que exigen reescribir el flujo de
+  venta (recalcular el total server-side desde el carrito, `force_settle`, cierre Z antes
+  del PDF, PDFs con tasa histórica) NO se tocan en este lote: son money-critical y el plan
+  ya avisa contra refactors sin poder validar en la GUI (better-sqlite3/Electron no corre en
+  este entorno headless). Se abordarán con la GUI disponible como red de seguridad.
+
+---

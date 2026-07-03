@@ -105,6 +105,47 @@ test('Fase 5: abonos anulados se CONSERVAN (no se borran) y se filtran por anula
   assert.strictEqual(activos, 1);
 });
 
+test('Anexo A A.4: descuento de stock con guarda AND stock>=? no deja stock negativo', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE productos (id INTEGER PRIMARY KEY, stock REAL DEFAULT 0);');
+  db.prepare('INSERT INTO productos (id, stock) VALUES (?, ?)').run(1, 5);
+  const upd = db.prepare('UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?');
+  // Intento de vender 8 con stock 5: no debe cambiar nada (changes=0), sin stock negativo.
+  const r1 = upd.run(8, 1, 8);
+  assert.strictEqual(r1.changes, 0);
+  assert.strictEqual(db.prepare('SELECT stock FROM productos WHERE id=1').get().stock, 5);
+  // Venta válida de 3: descuenta a 2.
+  const r2 = upd.run(3, 1, 3);
+  assert.strictEqual(r2.changes, 1);
+  assert.strictEqual(db.prepare('SELECT stock FROM productos WHERE id=1').get().stock, 2);
+});
+
+test('Anexo A A.4: anular abono es soft-delete (anulado=1), no borrado físico', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`
+    CREATE TABLE abonos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, venta_id INTEGER, monto_pagado_usd REAL,
+      anulado INTEGER NOT NULL DEFAULT 0, anulado_en DATETIME, motivo_anulacion TEXT
+    );
+  `);
+  const ins = db.prepare('INSERT INTO abonos (venta_id, monto_pagado_usd) VALUES (?, ?)').run(1, 10);
+  const id = ins.lastInsertRowid;
+  const voidStmt = db.prepare(`
+    UPDATE abonos SET anulado = 1, anulado_en = datetime('now'), motivo_anulacion = @motivo
+    WHERE id = @id AND COALESCE(anulado,0) = 0
+  `);
+  const r = voidStmt.run({ id, motivo: 'error de cobro' });
+  assert.strictEqual(r.changes, 1);
+  // La fila SIGUE existiendo (no se borró), marcada anulada.
+  const row = db.prepare('SELECT anulado, motivo_anulacion FROM abonos WHERE id = ?').get(id);
+  assert.strictEqual(row.anulado, 1);
+  assert.strictEqual(row.motivo_anulacion, 'error de cobro');
+  // Re-anular no hace nada (idempotente).
+  assert.strictEqual(voidStmt.run({ id, motivo: 'x' }).changes, 0);
+  // Y no cuenta como abono activo.
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM abonos WHERE COALESCE(anulado,0)=0').get().n, 0);
+});
+
 test('venta descuenta stock; anular restaura stock y hace soft-delete (no borra la venta)', () => {
   const db = freshDb();
   db.prepare('INSERT INTO productos (id, nombre, stock) VALUES (?, ?, ?)').run(1, 'Harina', 10);
