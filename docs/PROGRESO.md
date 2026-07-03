@@ -138,3 +138,22 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   build empaquetado) NO se filtran `error.message`/`error.name` al cliente. Cierra A.3.
 
 ---
+
+## Fase 2 (refuerzos posteriores del anexo de blindaje)
+
+**Estado:** ✅ Completada. **Rama:** `fase-2-refuerzos`. **Tests:** 49/49 verde.
+
+- Token de licencia ahora incluye `jti` (id único por emisión, base de anti-replay 11.5)
+  y `k` (32 bytes de material de clave por-licencia, base del cifrado ligado a licencia
+  11.6). `k` se genera al activar y es estable; `jti` cambia en cada emisión. Test lo verifica.
+- `TOKEN_GRACE_DAYS` por defecto bajado de 7 a 5 días (revocación remota se propaga antes).
+- Detección de anomalías `trackAnomaly`: ≥5 IPs distintas por clave en 1h → `ANOMALY_MANY_IPS`
+  en el access log (mitiga clonado/trial farming).
+- Cabeceras de seguridad tipo helmet en el servidor de licencias (sin dependencia nueva) +
+  límite de body 256kb.
+
+- **DECISIÓN:** el CONSUMO en el cliente de `jti` (anti-replay 11.5) y `k` (cifrado de
+  recursos 11.6) requiere el refactor de `src/security/*` (Fase 11.1) y validación en GUI;
+  se dejan preparados en el token pero su implementación cliente queda para Fase 11.5/11.6.
+
+---

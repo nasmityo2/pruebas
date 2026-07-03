@@ -140,6 +140,24 @@ test('Fase 14: trial con hwid "__proto__" es rechazado', async () => {
   assert.ok(!r.data || !r.data.token);
 });
 
+test('Fase 2 refuerzo: el token de licencia incluye jti (anti-replay) y k (material de clave)', async () => {
+  const token = await loginAdmin();
+  const created = await api(server.baseUrl, '/api/admin/licenses', { method: 'POST', token, body: { plan: 'PRO', dias: 365 } });
+  const key = created.data.licenses[0].key;
+  const hwid = 'HWID-JTIK-000000';
+  const act = await api(server.baseUrl, '/api/activate', { method: 'POST', body: { key, hwid } });
+  assert.strictEqual(act.status, 200);
+  const { ok, payload } = verifySignedToken(act.data.token, server.publicKey);
+  assert.ok(ok, 'firma válida');
+  assert.ok(payload.jti && payload.jti.length > 10, 'incluye jti único');
+  assert.ok(payload.k && payload.k.length >= 32, 'incluye material de clave k');
+  // Un segundo verify emite un jti DISTINTO (no reutilizable).
+  const v = await api(server.baseUrl, '/api/verify', { method: 'POST', body: { key, hwid } });
+  const p2 = verifySignedToken(v.data.token, server.publicKey).payload;
+  assert.notStrictEqual(p2.jti, payload.jti, 'jti cambia entre emisiones');
+  assert.strictEqual(p2.k, payload.k, 'k es estable por licencia');
+});
+
 test('Fase 14: verify de licencia pendiente (nunca activada) no reemite token', async () => {
   const token = await loginAdmin();
   const created = await api(server.baseUrl, '/api/admin/licenses', { method: 'POST', token, body: { plan: 'PRO', dias: 365 } });
