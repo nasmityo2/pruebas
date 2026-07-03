@@ -189,11 +189,26 @@ async function parseMultipartUpload(request, reply) {
 
   const parts = request.parts();
   request.body = {};
-  
+
+  // A.3: whitelist de extensiones por campo. Se ignora la extensión cruda del cliente y se
+  // usa una segura y conocida, y se rechazan tipos no permitidos (evita subir .exe/.html/etc.).
+  const ALLOWED_EXT = {
+    logoFile: ['.png', '.jpg', '.jpeg', '.webp', '.gif'],
+    imagen: ['.png', '.jpg', '.jpeg', '.webp', '.gif'],
+    _import: ['.xlsx', '.xls', '.csv'],
+  };
+
   for await (const part of parts) {
     if (part.file) {
+      const rawExt = (path.extname(part.filename || '') || '').toLowerCase();
+      const allowed = ALLOWED_EXT[part.fieldname] || ALLOWED_EXT._import;
+      if (!allowed.includes(rawExt)) {
+        // Descartar el stream para no dejar la conexión colgada.
+        part.file.resume();
+        throw new Error(`Tipo de archivo no permitido para "${part.fieldname}": ${rawExt || 'sin extensión'}`);
+      }
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      const extension = path.extname(part.filename);
+      const extension = rawExt;
       const prefix = part.fieldname === 'logoFile' ? 'logo-' : (part.fieldname === 'imagen' ? 'img-' : 'import-');
       const filename = prefix + uniqueSuffix + extension;
       const savedPath = path.join(uploadsBasePath, filename);
