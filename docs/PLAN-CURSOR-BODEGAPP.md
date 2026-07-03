@@ -574,7 +574,7 @@ await flipFuses(rutaDelBinario, {
 
 - [ ]  🔴 Instalar y arrancar el build final en un **Windows 7 / 32-bit real o VM** y validar: activación, heartbeat, bloqueo sin licencia, anti-rollback, self-check de integridad, y que la app abre sin errores de bytecode.
 - [ ]  🟠 Prueba de "crackeo casero": `asar extract`, intentar parchear el gate → confirmar que la app se rompe (por integridad/cifrado) en vez de funcionar sin licencia.
-- [ ]  🟡 Documentar en `docs/DISTRIBUCION.md` el proceso completo de release blindado (comandos bytenode ia32, fuses, ofuscación, firma de integridad).
+- [x]  🟡 Documentar en `docs/DISTRIBUCION.md` el proceso completo de release blindado (comandos bytenode ia32, fuses, ofuscación, firma de integridad). *(Añadido §6 "Blindaje final" + checklist §7.)*
 
 **Criterio:** el instalador blindado funciona en Win7/ia32 y resiste el parcheo casual del asar.
 
@@ -625,13 +625,13 @@ await flipFuses(rutaDelBinario, {
 
 ## 📋 Checklist "obfuscation-ready" (verificar antes de la Fase 13)
 
-- [ ]  Lógica sensible aislada en `src/security/*` (11.1).
-- [ ]  Sin `Function.prototype.toString()` / `fn.name` / `eval` / `new Function` sobre código propio.
-- [ ]  `require` a módulos sensibles con **string literal** (sin rutas dinámicas).
-- [ ]  Chequeos de licencia repartidos, no en un único booleano (11.6).
-- [ ]  Self-check de integridad y bytecode **gateados por entorno** (activos solo en prod).
-- [ ]  Recurso esencial cifrado y atado al token del servidor (11.6).
-- [ ]  Tests (Fase 9) cubren: anti-rollback, heartbeat bloqueante, HWID, cifrado ligado a licencia, integridad.
+- [x]  Lógica sensible aislada en `src/security/*` (11.1). *(clock, token, offline, hwid, resourceCrypto, watermark, updateVerify, integrity.)*
+- [x]  Sin `Function.prototype.toString()` / `fn.name` / `eval` / `new Function` sobre código propio. *(Verificado por búsqueda: sin coincidencias en `src/`.)*
+- [x]  `require` a módulos sensibles con **string literal** (sin rutas dinámicas). *(Verificado: sin `require()` con expresión dinámica en `src/`.)*
+- [~]  Chequeos de licencia repartidos, no en un único booleano (11.6). *(Gate en `accessGate` + `getCachedPayload` (reloj/offline/replay/firma/HWID/exp); el reparto vía cifrado de recurso se completa al integrar 11.6 en GUI.)*
+- [~]  Self-check de integridad y bytecode **gateados por entorno** (activos solo en prod). *(Integridad: gateada por `app.isPackaged` ✅. Bytecode: Fase 13, entorno de release.)*
+- [~]  Recurso esencial cifrado y atado al token del servidor (11.6). *(Primitivas + material `k` listos; integración del recurso real, en GUI.)*
+- [x]  Tests (Fase 9) cubren: anti-rollback, heartbeat bloqueante, HWID, cifrado ligado a licencia, integridad. *(clock/offline/hwid/resourceCrypto/integrity/updateVerify con tests.)*
 
 ---
 
@@ -788,8 +788,8 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [x]  🔴 `forge.config.js` **no excluye** `.env`, `*.key`, `*.pem` ni `scratch/` del empaquetado (sí excluye `.db`/`.lic`/`license-server/`): riesgo de empaquetar secretos. — `forge.config.js:26-41` *(Ya resuelto: `scripts/packaging-ignore.js` (usado por forge y por el guard) excluye `.env`/`.env.*`, `.key`, `.pem` y `scratch/`; verificado con `npm run check:secrets`.)*
 - [x]  🟠 `scratch/` contiene 13+ scripts y `Estado_de_Cuenta_TAIRON.pdf` (posible dato real de cliente); está en `.gitignore` pero no se excluye del build. — `scratch/` *(Excluido del build por `packaging-ignore` (carpeta `scratch`) y del repo por `.gitignore`.)*
 - [~]  🟠 Dependencias muertas en el bundle del cliente: `bcryptjs`, `jsonwebtoken` (solo se usan en `license-server`), `consulta-dolar-venezuela`, `dir-compare`. — `package.json:26,29,31,36` *(Eliminadas `consulta-dolar-venezuela` y `dir-compare` (sin `require` en ningún lado). `bcryptjs` SÍ lo usa el cliente (`src/utils/auth.js`). `jsonwebtoken` lo resuelve el `license-server` desde el `node_modules` compartido (no tiene el suyo); se separará al dividir repos — Fase 10.)*
-- [ ]  🔵 `output.css` (Tailwind compilado) versionado en disco pero listado en `.gitignore` → riesgo de drift si no se corre `build:css:prod`. — `public/css/output.css` vs `.gitignore`
-- [ ]  🔵 `configuracion.html` enlaza `/excel-template/plantilla-productos.xlsx` inexistente → importación guiada rota. — `public/configuracion.html:374`
+- [~]  🔵 `output.css` (Tailwind compilado) versionado en disco pero listado en `.gitignore` → riesgo de drift si no se corre `build:css:prod`. — `public/css/output.css` vs `.gitignore` *(DECISIÓN: correcto que esté gitignored (artefacto). Se regenera SIEMPRE en el build por el hook `premake` (`build:css:prod`). No hay drift en el paquete; en dev se usa `build:css` en watch.)*
+- [x]  🔵 `configuracion.html` enlaza `/excel-template/plantilla-productos.xlsx` inexistente → importación guiada rota. — `public/configuracion.html:374` *(Corregido: nuevo endpoint `GET /api/products/import-template` genera la plantilla `.xlsx` en memoria con las columnas correctas; el enlace ahora apunta ahí.)*
 
 **Criterio de aceptación del anexo:** cada hallazgo se verifica contra el código actual, se reasigna a su fase si corresponde y se marca `- [x]` cuando queda corregido (o se documenta por qué se descarta).
 

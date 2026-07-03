@@ -1123,6 +1123,33 @@ const deleteCategory = (req, res) => {
   }
 };
 
+// A.9: la plantilla de importación se GENERA en memoria (antes el enlace apuntaba a un
+// archivo estático inexistente → importación guiada rota). Devuelve un .xlsx con las columnas
+// esperadas por importProducts y una fila de ejemplo.
+const getImportTemplate = (req, res) => {
+  try {
+    const headers = [
+      'nombre', 'costo', 'moneda_costo', 'porcentaje_ganancia', 'stock',
+      'categoria', 'tipo_venta', 'proveedor', 'barcode', 'costo_bulto', 'unidades_bulto',
+    ];
+    const ejemplo = {
+      nombre: 'Harina de maíz 1kg', costo: 1.20, moneda_costo: 'BCV', porcentaje_ganancia: 30,
+      stock: 50, categoria: 'Víveres', tipo_venta: 'UNIDAD', proveedor: 'Proveedor C.A.',
+      barcode: '7591234567890', costo_bulto: 24, unidades_bulto: 24,
+    };
+    const ws = xlsx.utils.json_to_sheet([ejemplo], { header: headers });
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, 'Plantilla');
+    const buf = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-productos.xlsx"');
+    res.send(buf);
+  } catch (error) {
+    console.error('Error generando plantilla de importación:', error);
+    res.status(500).json({ error: 'No se pudo generar la plantilla.' });
+  }
+};
+
 const updateStock = (req, res) => {
   const { id } = req.params;
   const { quantity } = req.body;
@@ -1247,5 +1274,6 @@ module.exports = {
   updateStock,
   deleteProductsMassive,
   updateProductsProfitMassive,
-  updateImage
+  updateImage,
+  getImportTemplate
 };
