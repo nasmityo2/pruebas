@@ -756,7 +756,7 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [ ]  🟡 N+1: `searchSales()` consulta productos por cada venta encontrada. — `controllers/reports.controller.js:2904-2906`
 - [ ]  🟡 N+1: `getClientDebtsWithProducts()` consulta productos por cada venta abierta del cliente. — `controllers/client.controller.js:283`
 - [ ]  🟡 `db.prepare(...)` dentro de funciones/loops en vez de una sola vez (recalc, `processSaleTransaction`, `importProducts`). — `controllers/sales.controller.js:206-207,398-438`, `controllers/product.controller.js:620`
-- [ ]  🔵 `cancelSale` está exportado pero **sin ruta** y duplica la lógica de `voidSale`. — `controllers/sales.controller.js:1015-1068`
+- [x]  🔵 `cancelSale` está exportado pero **sin ruta** y duplica la lógica de `voidSale`. — `controllers/sales.controller.js:1015-1068` *(Eliminado: era código muerto (sin ruta) que hacía borrado físico de abonos/pagos. La anulación oficial es `voidSale` (reports.controller, con clave admin y soft-delete). Se quitaron también sus statements sin uso.)*
 - [ ]  🔵 `printSettings.controller.js` no está ruteado; hay 3 implementaciones de config de impresión con campos distintos (`printHeader` vs `ticketHeader`, etc.). — `controllers/printSettings.controller.js`, `routes/printSettings.routes.js`, `routes/settings.routes.js`
 - [x]  🔵 `routes/rapikom.routes.js` nunca se registra con `registerExpressRouter` → sus rutas están muertas. — *(Fase 7: rapikom y temp_advance eliminados por completo.)*
 - [ ]  🔵 DDL como side-effect al cargar el módulo: `db.exec('CREATE TABLE IF NOT EXISTS cierres_z ...')`. — `controllers/reports.controller.js:316-329`
