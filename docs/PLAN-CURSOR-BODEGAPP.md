@@ -785,9 +785,9 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 ## A.9 📦 Build y empaquetado (→ Fase 10)
 
-- [ ]  🔴 `forge.config.js` **no excluye** `.env`, `*.key`, `*.pem` ni `scratch/` del empaquetado (sí excluye `.db`/`.lic`/`license-server/`): riesgo de empaquetar secretos. — `forge.config.js:26-41`
-- [ ]  🟠 `scratch/` contiene 13+ scripts y `Estado_de_Cuenta_TAIRON.pdf` (posible dato real de cliente); está en `.gitignore` pero no se excluye del build. — `scratch/`
-- [ ]  🟠 Dependencias muertas en el bundle del cliente: `bcryptjs`, `jsonwebtoken` (solo se usan en `license-server`), `consulta-dolar-venezuela`, `dir-compare`. — `package.json:26,29,31,36`
+- [x]  🔴 `forge.config.js` **no excluye** `.env`, `*.key`, `*.pem` ni `scratch/` del empaquetado (sí excluye `.db`/`.lic`/`license-server/`): riesgo de empaquetar secretos. — `forge.config.js:26-41` *(Ya resuelto: `scripts/packaging-ignore.js` (usado por forge y por el guard) excluye `.env`/`.env.*`, `.key`, `.pem` y `scratch/`; verificado con `npm run check:secrets`.)*
+- [x]  🟠 `scratch/` contiene 13+ scripts y `Estado_de_Cuenta_TAIRON.pdf` (posible dato real de cliente); está en `.gitignore` pero no se excluye del build. — `scratch/` *(Excluido del build por `packaging-ignore` (carpeta `scratch`) y del repo por `.gitignore`.)*
+- [~]  🟠 Dependencias muertas en el bundle del cliente: `bcryptjs`, `jsonwebtoken` (solo se usan en `license-server`), `consulta-dolar-venezuela`, `dir-compare`. — `package.json:26,29,31,36` *(Eliminadas `consulta-dolar-venezuela` y `dir-compare` (sin `require` en ningún lado). `bcryptjs` SÍ lo usa el cliente (`src/utils/auth.js`). `jsonwebtoken` lo resuelve el `license-server` desde el `node_modules` compartido (no tiene el suyo); se separará al dividir repos — Fase 10.)*
 - [ ]  🔵 `output.css` (Tailwind compilado) versionado en disco pero listado en `.gitignore` → riesgo de drift si no se corre `build:css:prod`. — `public/css/output.css` vs `.gitignore`
 - [ ]  🔵 `configuracion.html` enlaza `/excel-template/plantilla-productos.xlsx` inexistente → importación guiada rota. — `public/configuracion.html:374`
 
@@ -878,10 +878,10 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 ## B.H 📦 Build y dependencias (→ Fase 10 / Fase 13)
 
-- [ ]  🟠 **`xlsx@0.18.5` con vulnerabilidades conocidas** (Prototype Pollution — CVE-2023-30533 — y ReDoS). La versión de npm no tiene parche; se recomienda migrar a la build oficial (CDN de SheetJS) o mitigar el parseo de archivos no confiables. Se usa en `product.controller.js` y `reports.controller.js`. — `package.json:45` (Fase 10)
-- [ ]  🔵 **Dos librerías CSV a la vez:** `fast-csv` y `csv-parser` ambas en `dependencies` y ambas importadas en `product.controller.js`. Unificar en una sola reduce superficie y peso. — `package.json:32,37`, `controllers/product.controller.js:4-5` (Fase 10)
-- [ ]  🔵 **`@electron-forge/maker-squirrel` en devDependencies pero no se usa** (solo se empaqueta con `maker-wix`). Limpieza. — `package.json:49`, `forge.config.js:21-36` (Fase 10)
-- [ ]  🔵 **`axios@^1.6.0` desactualizado** (versiones 1.6.x tuvieron avisos de seguridad de redirección/SSRF corregidos después). Evaluar subir dentro de 1.x. — `package.json:29` (Fase 10)
+- [~]  🟠 **`xlsx@0.18.5` con vulnerabilidades conocidas** (Prototype Pollution — CVE-2023-30533 — y ReDoS). La versión de npm no tiene parche; se recomienda migrar a la build oficial (CDN de SheetJS) o mitigar el parseo de archivos no confiables. Se usa en `product.controller.js` y `reports.controller.js`. — `package.json:45` (Fase 10) *(DOCUMENTADO: la migración a la build de SheetJS (CDN, fuera de npm) requiere validar la importación/exportación de Excel en la GUI; se difiere a esa sesión. Mitigación actual: los .xlsx solo los abre el propio dueño desde su equipo (no entrada de red no confiable). Registrado en `docs/BLOQUEOS.md`.)*
+- [~]  🔵 **Dos librerías CSV a la vez:** `fast-csv` y `csv-parser` ambas en `dependencies` y ambas importadas en `product.controller.js`. Unificar en una sola reduce superficie y peso. — `package.json:32,37`, `controllers/product.controller.js:4-5` (Fase 10) *(DIFERIDO: unificar requiere reescribir la lógica de import/export CSV y validarla en la GUI. Registrado en `docs/BLOQUEOS.md`.)*
+- [~]  🔵 **`@electron-forge/maker-squirrel` en devDependencies pero no se usa** (solo se empaqueta con `maker-wix`). Limpieza. — `package.json:49`, `forge.config.js:21-36` (Fase 10) *(DIFERIDO: es devDependency; no afecta el bundle del cliente. Se limpiará al tocar el pipeline de build en Fase 13.)*
+- [~]  🔵 **`axios@^1.6.0` desactualizado** (versiones 1.6.x tuvieron avisos de seguridad de redirección/SSRF corregidos después). Evaluar subir dentro de 1.x. — `package.json:29` (Fase 10) *(DIFERIDO: subir axios dentro de 1.x requiere revalidar heartbeat/descarga de updates en runtime; registrado en `docs/BLOQUEOS.md`.)*
 
 ## B.I 🧩 Robustez general (→ nueva Fase 14)
 
