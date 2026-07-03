@@ -398,6 +398,18 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 
 ---
 
+## Anexo A A.4 / B.D — Cashea (transacción + validación)
+
+**Estado:** ✅ Completada. **Rama:** `fase-anexoA-cashea`. **Tests:** 85/85 verde.
+
+- `PagarCuota`: valida existencia/estado de la cuota y ejecuta en transacción (pago + cierre
+  de la venta Cashea atómicos).
+- `createCasheaVenta`: valida que `cuotas` sea un array con campos válidos, que sumen el saldo
+  financiado (`monto_total_usd - monto_inicial_usd`, ±0.01) y rechaza duplicar el registro
+  Cashea de una misma venta.
+
+---
+
 ## Resumen de la sesión
 
 - **Suite de tests:** 85/85 verde (arrancó en 36; +49 nuevos).

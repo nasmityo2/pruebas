@@ -6,7 +6,34 @@ const createCasheaVenta = (req, res) => {
   const { venta_id, cliente_id, referencia, monto_total_usd, porcentaje_inicial, monto_inicial_usd, linea, cuotas } = req.body;
   console.log(`[CASHEA] Creando registro para venta_id: ${venta_id}, ref: ${referencia}`);
 
+  // B.D / A.4: validar entradas y que las cuotas sean coherentes antes de insertar.
+  if (!venta_id || !cliente_id) {
+    return res.status(400).json({ error: 'venta_id y cliente_id son obligatorios.' });
+  }
+  if (!Array.isArray(cuotas) || cuotas.length === 0) {
+    return res.status(400).json({ error: 'Se requiere al menos una cuota.' });
+  }
+  for (const c of cuotas) {
+    if (c == null || c.numero == null || isNaN(parseFloat(c.monto_usd)) || !c.fecha_vencimiento) {
+      return res.status(400).json({ error: 'Cada cuota requiere numero, monto_usd y fecha_vencimiento válidos.' });
+    }
+  }
+  const totalCuotas = cuotas.reduce((s, c) => s + parseFloat(c.monto_usd), 0);
+  const esperado = (parseFloat(monto_total_usd) || 0) - (parseFloat(monto_inicial_usd) || 0);
+  // Tolerancia de 1 centavo por redondeos.
+  if (Math.abs(totalCuotas - esperado) > 0.01) {
+    return res.status(400).json({
+      error: `Las cuotas ($${totalCuotas.toFixed(2)}) no suman el saldo financiado esperado ($${esperado.toFixed(2)}).`,
+    });
+  }
+
   try {
+    // Evitar duplicar el registro Cashea de una misma venta.
+    const yaExiste = db.prepare('SELECT 1 FROM cashea_ventas WHERE venta_id = ?').get(venta_id);
+    if (yaExiste) {
+      return res.status(409).json({ error: 'Esta venta ya tiene un registro Cashea.' });
+    }
+
     const transaction = db.transaction(() => {
       // 1. Insertar en cashea_ventas
       const stmtVenta = db.prepare(`
@@ -71,20 +98,29 @@ const getCasheaCuotas = (req, res) => {
 const PagarCuota = (req, res) => {
   const { cuota_id } = req.params;
   try {
-    const stmt = db.prepare(`
-      UPDATE cashea_cuotas
-      SET estado = 'PAGADO', fecha_pago = datetime('now', 'localtime')
-      WHERE id = ?
-    `);
-    stmt.run(cuota_id);
-
-    // Verificar si todas las cuotas están pagadas para marcar la venta como COMPLETADA
-    const cuota = db.prepare('SELECT cashea_venta_id FROM cashea_cuotas WHERE id = ?').get(cuota_id);
-    const pendientes = db.prepare("SELECT COUNT(*) as count FROM cashea_cuotas WHERE cashea_venta_id = ? AND estado = 'PENDIENTE'").get(cuota.cashea_venta_id);
-
-    if (pendientes.count === 0) {
-      db.prepare("UPDATE cashea_ventas SET estado = 'COMPLETADO' WHERE id = ?").run(cuota.cashea_venta_id);
+    // B.D / A.4: validar existencia y ejecutar en una transacción (pago de cuota + posible
+    // cierre de la venta Cashea son atómicos).
+    const cuota = db.prepare('SELECT id, cashea_venta_id, estado FROM cashea_cuotas WHERE id = ?').get(cuota_id);
+    if (!cuota) {
+      return res.status(404).json({ error: 'Cuota no encontrada.' });
     }
+    if (cuota.estado === 'PAGADO') {
+      return res.status(400).json({ error: 'La cuota ya está pagada.' });
+    }
+
+    const tx = db.transaction(() => {
+      db.prepare(`
+        UPDATE cashea_cuotas
+        SET estado = 'PAGADO', fecha_pago = datetime('now', 'localtime')
+        WHERE id = ?
+      `).run(cuota_id);
+
+      const pendientes = db.prepare("SELECT COUNT(*) as count FROM cashea_cuotas WHERE cashea_venta_id = ? AND estado = 'PENDIENTE'").get(cuota.cashea_venta_id);
+      if (pendientes.count === 0) {
+        db.prepare("UPDATE cashea_ventas SET estado = 'COMPLETADO' WHERE id = ?").run(cuota.cashea_venta_id);
+      }
+    });
+    tx();
 
     res.json({ ok: true });
   } catch (error) {
