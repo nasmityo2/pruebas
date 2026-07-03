@@ -2912,7 +2912,9 @@ const searchSales = (req, res) => {
   }
 
   try {
-    const term = `% ${q}% `;
+    // Anexo A A.4: el patrón anterior `% ${q}% ` tenía espacios literales y casi nunca
+    // coincidía. El correcto es `%<q>%` (comodín a ambos lados, sin espacios).
+    const term = `%${String(q).trim()}%`;
     const sales = searchSalesStmt.all(term, term, term);
 
     const { detailedSales } = computeRealizedSummaryForSales(sales);
