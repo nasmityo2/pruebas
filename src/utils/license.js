@@ -13,6 +13,7 @@ const { getDataBasePath } = require('./settings');
 const { HIST_SECRET } = require('../config');
 const clock = require('../security/clock');
 const replay = require('../security/token');
+const offline = require('../security/offline');
 
 // Llave pública NUEVA (rotada en Fase 1). Solo verifica firmas; nunca puede firmar.
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -186,6 +187,12 @@ function getCachedPayload() {
   // re-verificación online (no se concede licencia/trial con el reloj manipulado).
   const now = Math.floor(Date.now() / 1000);
   if (clock.isClockRolledBack({ now, lastSeenEpoch: cache.lastSeenEpoch || 0 })) {
+    return null;
+  }
+  // Fase 11.3: si pasó demasiado tiempo desde la última verificación EXITOSA contra el
+  // servidor (bloqueo de red/firewall prolongado), se bloquea aunque el token no haya
+  // expirado. `lastSeenEpoch` solo se actualiza tras un contacto exitoso con el servidor.
+  if (offline.isOfflineGraceExceeded({ now, lastSuccessfulVerify: cache.lastSeenEpoch || 0 })) {
     return null;
   }
   const payload = verifyToken(cache.token);
