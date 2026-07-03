@@ -267,8 +267,8 @@ Modelo objetivo: **activación en línea obligatoria + vínculo a hardware + ver
 - [x]  Revisar y crear las migraciones faltantes de **Cashea** (`cashea_ventas`, `cashea_cuotas`) para que el módulo no rompa.
 - [x]  Quitar `verbose: console.log` de better-sqlite3 en producción.
 - [x]  Añadir índices SQL en columnas de búsqueda frecuente (productos, ventas, clientes).
-- [ ]  🟠 **Activar `PRAGMA foreign_keys = ON`** en la conexión a la base de datos para que las claves foráneas se apliquen realmente.
-- [ ]  🟠 **Dejar de ejecutar `DELETE FROM abonos` en cada arranque** (en `initializeDB()`); el histórico de abonos anulados debe conservarse.
+- [x]  🟠 **Activar `PRAGMA foreign_keys = ON`** en la conexión a la base de datos para que las claves foráneas se apliquen realmente. *(Se activa al final de `initializeDB()`, tras las reconstrucciones legacy DROP+CREATE que requieren FK off; test con node:sqlite verifica el rechazo de hijos huérfanos.)*
+- [x]  🟠 **Dejar de ejecutar `DELETE FROM abonos` en cada arranque** (en `initializeDB()`); el histórico de abonos anulados debe conservarse. *(Bloque eliminado; los anulados se filtran con `COALESCE(anulado,0)=0`, no se borran.)*
 
 **Criterio de aceptación:** migraciones versionadas con backup previo; no hay borrado físico de ventas/abonos; tasas históricas intactas; Cashea con sus tablas; sin logging de SQL en prod.
 
@@ -745,8 +745,8 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 
 > Nota: `_migrations` versionadas, backup antes de migrar, quitar `verbose`, soft-delete unificado y congelar tasa por venta ya están en la Fase 5. Aquí van los que faltan.
 
-- [ ]  🟠 `PRAGMA foreign_keys = ON` no se activa pese a múltiples `FOREIGN KEY` declaradas → SQLite no los aplica. — `src/database.js`
-- [ ]  🟠 `initializeDB()` ejecuta `DELETE FROM abonos WHERE anulado = 1` en **cada arranque**, borrando histórico de abonos anulados. — `src/database.js:404-421`
+- [x]  🟠 `PRAGMA foreign_keys = ON` no se activa pese a múltiples `FOREIGN KEY` declaradas → SQLite no los aplica. — `src/database.js` *(Fase 5: activado al final de `initializeDB()`.)*
+- [x]  🟠 `initializeDB()` ejecuta `DELETE FROM abonos WHERE anulado = 1` en **cada arranque**, borrando histórico de abonos anulados. — `src/database.js:404-421` *(Fase 5: bloque eliminado.)*
 - [ ]  🟡 Migraciones destructivas (`DROP TABLE productos`/`venta_pagos`) sin backup automático previo. — `src/database.js:555-590,728-805`
 - [ ]  🟡 Timestamps con `datetime('now','localtime')` dependen del huso del SO, no de un UTC-4 fijo para Venezuela. — `src/database.js` (varios)
 

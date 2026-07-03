@@ -67,3 +67,23 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   el frontend lo necesita para decidir si pedir la clave admin. Riesgo bajo aceptado.
 
 ---
+
+## Fase 5 (reapertura) — Integridad de BD (items abiertos)
+
+**Estado:** ✅ Completada. **Rama:** `fase-5b-db-integridad`. **Tests:** 43/43 verde.
+
+- `PRAGMA foreign_keys = ON` activado al FINAL de `initializeDB()` (tras las
+  reconstrucciones legacy DROP+CREATE, que necesitan FK off). Test con node:sqlite
+  verifica que un hijo con padre inexistente es rechazado.
+- Eliminado el `DELETE FROM abonos WHERE anulado = 1` que corría en cada arranque
+  (borraba el histórico de abonos anulados). Ahora se conservan y se filtran por
+  `COALESCE(anulado,0)=0`. Test verifica que el histórico se conserva.
+
+- **DECISIÓN (FK al final de init):** activar `foreign_keys` en `openDatabase()` habría
+  hecho que las migraciones legacy de reconstrucción de tablas corrieran con FK on
+  (riesgo). Se activa al final de `initializeDB()` para no cambiar el comportamiento de
+  esas migraciones (patrón seguro de "table rebuild") y aplicar FK solo a la operación
+  normal. Como el entorno headless no permite ejecutar better-sqlite3/Electron, se validó
+  la semántica con node:sqlite en la suite.
+
+---
