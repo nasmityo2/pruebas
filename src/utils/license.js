@@ -14,13 +14,13 @@ const { HIST_SECRET } = require('../config');
 
 // Llave pública NUEVA (rotada en Fase 1). Solo verifica firmas; nunca puede firmar.
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt8Lk4fcZR2HJaymGwmtB
-tugbL+Qs8UP1lNhDh1SCGBU6BJhlKaX4+WL45aFbAJ20/pGMz9l/kmAMe5/o4svI
-w8oFwnfmx9l/jvy91qBTWJZ8CJsf8ciQDNJQnX+F2o3YgrB0W+OmZhJG5lAE7fvs
-Ykg/pACFpg4XHzVhgNqc19SyuxVgz2DeAFMM/nXihbipZZsEwZI0VmPlWAndAP/v
-8evqNs/cEZ/B1fSIdlNzpuH2yVpXuBjnIVpt6DFE7ekNXe62pUgkLsJJcVBEUIkS
-9+24EiqCERdjr91grmrPY5smGu65NsZ4DlJaC3/9yTz/r1YMgCV5Om+9XVJquye1
-hwIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0qrVjADUXRw3dZ0+Ktvg
+hnmmcUzp0VSzAzJxFA4ieMjU8aYi2WgUqab5A1aR9jcUL+CdxJY+4Sa7HyV0QB82
+3rKsNhfaNQEBh4b2tijGW4v9cCdQKvydMYYyLhpixCEq3m0KaBA5HUSQdhYdznJS
+Pt4Dl6jiVkTG5qCAu7xz73bKn9eC6uisbtSEtu/DjyYG6sGiKcdrLi14crbSwoNC
+vs5Z8fgEPutlTV9+mgMEZY8HvEKQzhxHWdjuBbiOvL44K3bBrw5dB2Uwhi1k0uO/
+I+frlnmNcVgHSo/qQ98cG5MTbu6NlN0WP1ckiH8cISp16hMEa5TUMYqVC5fFT+LK
+uwIDAQAB
 -----END PUBLIC KEY-----`;
 
 // ------------------------------------------------------------------
