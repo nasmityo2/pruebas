@@ -474,12 +474,21 @@ function registerPayment(req, res) {
         throw new Error('No se pudo recalcular la deuda de la venta.');
       }
 
-      // 🔴 FORCE SETTLE: Si el frontend determina que esto cierra la venta, forzamos el cierre
+      // 🔴 FORCE SETTLE (Anexo A A.4): solo se cierra como PAGADO si la deuda REAL recalculada
+      // es un residuo de redondeo (<= $0.05). Antes cerraba como PAGADO con
+      // `monto_pendiente_usd = 0` aunque quedara deuda real, "perdonándola" sin control.
+      // Si aún hay deuda significativa, se CONSERVA el abono y el estado recalculado (no se
+      // pierde el pago), pero NO se marca PAGADO.
       if (req.body.force_settle) {
-        const totalUsd = Number(ventaRow.total_usd_bcv) || 0;
-        updateSaleStatusStmt.run('PAGADO', 0, totalUsd, ventaId);
-        updatedSale.estado_pago = 'PAGADO';
-        updatedSale.monto_pendiente_usd = 0;
+        const pendienteReal = Number(updatedSale.monto_pendiente_usd) || 0;
+        if (pendienteReal <= 0.05) {
+          const totalUsd = Number(ventaRow.total_usd_bcv) || 0;
+          updateSaleStatusStmt.run('PAGADO', 0, totalUsd, ventaId);
+          updatedSale.estado_pago = 'PAGADO';
+          updatedSale.monto_pendiente_usd = 0;
+        } else {
+          console.warn(`[FORCE_SETTLE] Ignorado en venta ${ventaId}: aún queda deuda de $${pendienteReal.toFixed(2)}.`);
+        }
       }
 
       return updatedSale;
