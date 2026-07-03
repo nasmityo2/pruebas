@@ -475,9 +475,9 @@ function deriveResourceKey(hwid, tokenPayload) {
 
 > Cierra A.3 (preload genérico) y refuerza el A.3 sobre fuses (los fuses van en Fase 13).
 
-- [ ]  🔴 `preload.js`: reemplazar `invoke/send/receive` genéricos por una **whitelist explícita** de canales IPC permitidos. El renderer no debe poder invocar handlers arbitrarios (p. ej. `app:restart`).
-- [ ]  🟠 Deshabilitar DevTools y atajos de inspección en el build de producción; mantener `contextIsolation:true` y `nodeIntegration:false` (ya correctos — no tocar).
-- [ ]  🟡 El error handler global NO debe filtrar `error.message`/`error.name` al cliente en producción (cerrar A.3).
+- [x]  🔴 `preload.js`: reemplazar `invoke/send/receive` genéricos por una **whitelist explícita** de canales IPC permitidos. El renderer no debe poder invocar handlers arbitrarios (p. ej. `app:restart`). *(Whitelist `ALLOWED_INVOKE=['app:restart']`; `send`/`receive` sin canales (no usados). Verificado que el frontend solo usa `invoke('app:restart')`.)*
+- [x]  🟠 Deshabilitar DevTools y atajos de inspección en el build de producción; mantener `contextIsolation:true` y `nodeIntegration:false` (ya correctos — no tocar). *(`devTools: !app.isPackaged` + cierre de DevTools si se abren en empaquetado.)*
+- [x]  🟡 El error handler global NO debe filtrar `error.message`/`error.name` al cliente en producción (cerrar A.3). *(Gateado por `NODE_ENV==='production'`, que se fija en el build empaquetado.)*
 
 **Criterio:** el renderer solo puede llamar canales de la whitelist; sin DevTools en prod; sin fuga de detalles de error.
 
@@ -717,9 +717,9 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · 🔵 baja/limpieza.
 - [~]  🟠 `DELETE /api/reports/void/:saleId`, `/cash-withdrawal`, `/cash-opening`, `/cash-advance` sin verificación admin. — *(Fase 4: `void` ya exige clave admin y queda auditado. FALTA gatear cash-withdrawal/opening/advance.)*
 - [ ]  🟠 `POST /api/backup/cloud/save-token` y `DELETE .../remove-token` sin auth. — `routes/backup.routes.js:90-143`
 - [ ]  🟠 Carpeta `uploads` servida estáticamente en `/uploads/` sin control de acceso; `parseMultipartUpload` usa la extensión del `filename` del cliente sin validar MIME/tamaño/whitelist. — `server.js:172-205,229-236`
-- [ ]  🟠 `preload.js` expone `invoke/send/receive` genéricos sin whitelist de canales; el renderer puede invocar cualquier handler IPC (p. ej. `app:restart`). — `preload.js:5-15`
+- [x]  🟠 `preload.js` expone `invoke/send/receive` genéricos sin whitelist de canales; el renderer puede invocar cualquier handler IPC (p. ej. `app:restart`). — `preload.js:5-15` *(Fase 11.9: whitelist explícita.)*
 - [~]  🟠 `bcvUpdater` usa `rejectUnauthorized: false` en `https.get` al scrapear BCV (MITM posible). — `src/services/bcvUpdater.js:21` *(Fase 1: se quitó del fallback parametrizado; el scraper directo de bcv.org.ve lo conserva por los problemas de certificado del sitio gubernamental. Pendiente evaluar.)*
-- [ ]  🟡 El error handler global filtra `error.message` y `error.name` al cliente. — `server.js:308-315`
+- [x]  🟡 El error handler global filtra `error.message` y `error.name` al cliente. — `server.js:308-315` *(Fase 11.9: no se filtran en producción.)*
 - [ ]  🔵 No hay Electron Fuses configurados (`RunAsNode`, `EnableNodeCliInspectArguments`, etc.). Positivo: `contextIsolation:true` y `nodeIntegration:false` ya están bien — no tocar. — `main.js`
 
 ## A.4 💵 Ventas, cobranza y dinero — backend (→ Fase 5 / bugfix)

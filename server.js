@@ -173,7 +173,9 @@ function adaptController(expressController) {
     } catch (err) {
       console.error("Error en controlador adaptado:", err);
       if (!responseSent) {
-        reply.status(500).send({ error: true, message: err.message });
+        // En producción no filtrar el mensaje interno del error (A.3).
+        const message = process.env.NODE_ENV === 'production' ? 'Error interno del servidor' : err.message;
+        reply.status(500).send({ error: true, message });
       }
     }
   };
@@ -422,14 +424,17 @@ async function startFastifyServer() {
   });
 
   // Global Error Handler
+  // Fase 11.9 / A.3: en producción NO se filtran `error.message`/`error.name` al cliente
+  // (pueden revelar rutas internas, SQL o detalles útiles para atacar). En desarrollo sí.
+  const isProd = process.env.NODE_ENV === 'production';
   fastify.setErrorHandler((error, request, reply) => {
     console.error('🔥 ERROR CRÍTICO NO CONTROLADO:', error);
-    reply.status(500).send({
-      error: true,
-      message: 'Error interno del servidor',
-      details: error.message || 'Error desconocido',
-      type: error.name
-    });
+    const payload = { error: true, message: 'Error interno del servidor' };
+    if (!isProd) {
+      payload.details = error.message || 'Error desconocido';
+      payload.type = error.name;
+    }
+    reply.status(500).send(payload);
   });
 }
 

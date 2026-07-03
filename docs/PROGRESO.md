@@ -124,3 +124,17 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   y verificables"). Queda como continuación de Fase 8 con GUI. Documentado en Anexo B B.G.
 
 ---
+
+## Fase 11.9 — Endurecer superficie del cliente (IPC / DevTools / errores)
+
+**Estado:** ✅ Completada. **Rama:** `fase-11-9-superficie`. **Tests:** 48/48 verde.
+
+- `preload.js`: whitelist explícita de canales IPC. `invoke` solo permite `app:restart`
+  (único canal genérico usado por el frontend, verificado con grep); `send`/`receive`
+  sin canales permitidos (no se usan). Cierra A.3 y Fase 11.9 🔴.
+- DevTools deshabilitadas en el build empaquetado (`devTools: !app.isPackaged` + cierre
+  automático si se abren). `contextIsolation:true`/`nodeIntegration:false` intactos.
+- Error handler global y adapter: en producción (`NODE_ENV==='production'`, fijado por el
+  build empaquetado) NO se filtran `error.message`/`error.name` al cliente. Cierra A.3.
+
+---
