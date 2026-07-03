@@ -104,6 +104,17 @@ process.on('uncaughtException', (err) => {
   }
 });
 
+// Fase 14: registrar rechazos de promesa no manejados (heartbeats, impresión, updates).
+// Solo se LOGUEA; no se mata el proceso, para no tumbar la app por un fallo de red aislado.
+process.on('unhandledRejection', (reason) => {
+  try {
+    const msg = reason && reason.stack ? reason.stack : String(reason);
+    logError(`PROMESA RECHAZADA NO MANEJADA: ${msg}`);
+  } catch (e) {
+    // 
+  }
+});
+
 try {
   logError('Cargando dependencias...');
   const portfinder = require('portfinder');
@@ -160,7 +171,7 @@ try {
 
       async function printHTML(options) {
         const { html, printerName, landscape, pageSize } = options || {};
-        const workerWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } });
+        const workerWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
         try {
           await workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
           const result = await new Promise((resolve) => {
@@ -203,7 +214,7 @@ try {
         // Usamos una ventana oculta para renderizar el HTML del ticket
         const workerWin = new BrowserWindow({ 
           show: false, 
-          webPreferences: { nodeIntegration: false } 
+          webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } 
         });
         
         try {
