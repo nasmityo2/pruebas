@@ -106,3 +106,21 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   este entorno headless). Se abordarán con la GUI disponible como red de seguridad.
 
 ---
+
+## Fase 8 (reapertura) — XSS por innerHTML (parcial)
+
+**Estado:** 🟡 Parcial. **Rama:** `fase-8-xss`. **Tests:** 48/48 verde.
+
+- Creado `public/js/escape.js` con `escapeHtml` (global + export CommonJS para test).
+- Aplicado a los sinks más expuestos: POS (nombre de producto y de presentación en los
+  resultados de búsqueda) y Cobranza (nombre/cédula/teléfono/dirección en las tarjetas).
+- Añadido `<script src="/js/escape.js">` antes del script principal en `pos.html` y
+  `cobranza.html`.
+- Test unitario del helper en `test/escape.units.test.js`.
+
+- **DECISIÓN (alcance):** el resto de vistas (inventario, reportes, detalles_venta,
+  indicadores, configuración, layout, etiquetas) NO se escapan aún: son archivos grandes y
+  el cambio necesita validación en la GUI para no romper el render (regla "cambios pequeños
+  y verificables"). Queda como continuación de Fase 8 con GUI. Documentado en Anexo B B.G.
+
+---
