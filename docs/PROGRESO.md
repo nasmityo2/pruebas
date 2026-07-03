@@ -187,3 +187,19 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 - Combinado con el `jti`/`iat` que ya emite el servidor (Fase 2 refuerzo).
 
 ---
+
+## Fase 11.3 — Bloqueo por offline prolongado
+
+**Estado:** ✅ Completada. **Rama:** `fase-11-3-offline`. **Tests:** 64/64 verde.
+
+- Nuevo `src/security/offline.js` (puro): `isOfflineGraceExceeded` con `GRACE_OFFLINE_HOURS`
+  (env, default 72h). 4 tests.
+- `getCachedPayload` bloquea si `now - lastSeenEpoch > 72h`. Como `lastSeenEpoch` solo avanza
+  tras un contacto EXITOSO con el servidor, bloquear el tráfico (firewall/hosts) ya no da
+  uso indefinido: pasadas 72h sin verificar, la app cae a EXPIRED y muestra activación.
+- Junto con Fase 11.2 (reloj) cierra el ataque combinado A.1 (reloj atrasado + firewall).
+
+- **DECISIÓN:** el backoff explícito con reintentos del heartbeat se difiere (requiere
+  validar en runtime/GUI); la distinción offline vs revoked/expired ya existía en `heartbeat()`.
+
+---
