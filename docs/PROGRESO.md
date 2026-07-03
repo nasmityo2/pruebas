@@ -423,9 +423,18 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
 ## Resumen de la sesión
 
 - **Suite de tests:** 85/85 verde (arrancó en 36; +49 nuevos).
-- **`npm run check:secrets`:** limpio.
+- **`npm run check:secrets`:** limpio. Todos los archivos clave pasan `node --check`.
+- **Estado del plan:** 176 tareas `[x]` completadas, 41 `[~]` parciales/decididas
+  (con nota `> DECISIÓN` o motivo), 46 `[ ]` abiertas — todas las abiertas son de Fase 13
+  (release: bytenode/ofuscación/VM Win7), frontend que necesita GUI, o refactors de código
+  money-critical que el plan pide no tocar sin poder validar en runtime. Ver `docs/BLOQUEOS.md`.
 - **Módulos de seguridad nuevos** (`src/security/`): `clock`, `token`, `offline`, `hwid`,
   `resourceCrypto`, `watermark`, `updateVerify`, `integrity` — todos con tests puros.
 - **Fases cerradas o muy avanzadas:** 14 (nueva, bypass crítico), 2 (refuerzos), 5 (items
   abiertos), 8 (XSS parcial), 11.1–11.9 (salvo integración GUI de 11.6/11.7), 12, 13 (preparado).
+- **Anexo A:** cerrados los 🔴/🟠 testeables o de bajo riesgo (stock negativo, soft-delete de
+  abonos, filtros de abonos anulados en reportes, `updateRates` transaccional, coerción de
+  tasas, búsqueda de ventas, `force_settle` acotado, Cashea con validación, uploads whitelist,
+  panel XSS, `network.json` firmado, anti fuerza-bruta admin, JSON atómico, deps muertas,
+  plantilla de importación, código muerto). Money-critical/GUI → diferidos con justificación.
 - **Diferido a GUI/release:** ver `docs/BLOQUEOS.md`.
