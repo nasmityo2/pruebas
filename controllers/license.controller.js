@@ -97,12 +97,21 @@ async function checkOnlineAndActivate() {
     return { success: true };
 }
 
+// Throttle del refresco en background (Fase 14 B.A): evita heartbeats solapados si el
+// frontend consulta /api/license/info repetidamente. Mínimo 30 s entre refrescos.
+let _lastBgRefresh = 0;
+const BG_REFRESH_MIN_MS = 30 * 1000;
+
 // GET /api/license/info  -> { hardwareId, status, message, plan }
 const getLicenseInfo = async (req, res) => {
     try {
         const hardwareId = getHardwareId();
-        // Refresco no bloqueante.
-        checkOnlineAndActivate().catch(() => {});
+        // Refresco no bloqueante, con throttle.
+        const now = Date.now();
+        if (now - _lastBgRefresh >= BG_REFRESH_MIN_MS) {
+            _lastBgRefresh = now;
+            checkOnlineAndActivate().catch(() => {});
+        }
         const appStatus = getAppStatus();
         res.json({ hardwareId, status: appStatus.status, message: appStatus.message, plan: appStatus.plan });
     } catch (error) {
