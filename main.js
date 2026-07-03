@@ -24,6 +24,12 @@ try {
 
 const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray } = require('electron');
 
+// Fase 11.9: en el build empaquetado marcamos entorno de producción. server.js (cargado
+// más adelante en el mismo proceso) usa NODE_ENV para NO filtrar detalles de error al cliente.
+try {
+  if (app && app.isPackaged) process.env.NODE_ENV = 'production';
+} catch (_) { /* noop */ }
+
 // --- GPU COMPATIBILITY FIX (Desactivado para permitir aceleración por hardware) ---
 // Prevenir crash fatal del proceso GPU (exit_code=-1073741515 / 0xC0000135)
 // que ocurre cuando faltan DLLs de DirectX/ANGLE en algunos PCs con Windows.
@@ -326,9 +332,18 @@ try {
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        // Fase 11.9: DevTools solo en desarrollo; deshabilitadas en el build empaquetado.
+        devTools: !app.isPackaged
       }
     });
+
+    // Refuerzo: si algo intenta abrir DevTools en producción, cerrarlas.
+    if (app.isPackaged) {
+      win.webContents.on('devtools-opened', () => {
+        try { win.webContents.closeDevTools(); } catch (_) { /* noop */ }
+      });
+    }
 
     if (!tray) {
       createTray();

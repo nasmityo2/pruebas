@@ -1,16 +1,34 @@
 // preload.js
 const { contextBridge, ipcRenderer } = require('electron');
 
-// API genérica (ya la tenías)
+// Fase 11.9 (anti-manipulación): whitelist EXPLÍCITA de canales IPC.
+// Antes, `api.invoke/send/receive` eran genéricos y el renderer (o un XSS) podía
+// invocar CUALQUIER handler registrado. Ahora solo se permiten canales conocidos.
+// Los canales de impresión/shell/ventana viven en sus propios puentes tipados abajo.
+const ALLOWED_INVOKE = new Set(['app:restart']);
+const ALLOWED_SEND = new Set();     // (ninguno en uso hoy)
+const ALLOWED_RECEIVE = new Set();  // (ninguno en uso hoy)
+
 contextBridge.exposeInMainWorld('api', {
   send: (channel, data) => {
+    if (!ALLOWED_SEND.has(channel)) {
+      console.warn('[preload] canal send no permitido:', channel);
+      return;
+    }
     ipcRenderer.send(channel, data);
   },
   receive: (channel, func) => {
+    if (!ALLOWED_RECEIVE.has(channel)) {
+      console.warn('[preload] canal receive no permitido:', channel);
+      return;
+    }
     ipcRenderer.on(channel, (event, ...args) => func(...args));
   },
-  // NUEVO: soporte para ipcRenderer.invoke/handle
   invoke: (channel, data) => {
+    if (!ALLOWED_INVOKE.has(channel)) {
+      console.warn('[preload] canal invoke no permitido:', channel);
+      return Promise.reject(new Error('Canal IPC no permitido.'));
+    }
     return ipcRenderer.invoke(channel, data);
   }
 });
