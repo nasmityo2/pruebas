@@ -256,3 +256,18 @@ Complementa `PLAN-CURSOR-BODEGAPP.md` (documento maestro).
   material `k`/`key` en el token ya están listos.
 
 ---
+
+## Fase 11.8 — Self-check de integridad en runtime
+
+**Estado:** ✅ Completada. **Rama:** `fase-11-8-integrity`. **Tests:** 83/83 verde.
+
+- `src/security/integrity.js`: `buildManifest`, `canonical`, `verifyManifestSignature`,
+  `findMismatches`, `runSelfCheck`. 4 tests (íntegro pasa; manipulado detecta; firma de
+  otra clave rechaza; manifiesto ausente rechaza).
+- `scripts/gen-integrity-manifest.js`: paso de build que hashea los archivos críticos +
+  `src/security/*` y firma el manifiesto con la clave privada.
+- `main.js`: ejecuta `runSelfCheck` SOLO en `app.isPackaged` (producción); si falla, muestra
+  error y cierra. En desarrollo no corre.
+- `integrity-manifest.json(.sig)` añadidos a `.gitignore` (artefacto de build).
+
+---
