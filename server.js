@@ -255,6 +255,13 @@ function parseCookie(cookieHeader, name) {
 let _licenseCache = { value: false, at: 0 };
 const LICENSE_CACHE_TTL_MS = 5000;
 function isLicensedNow() {
+  // ⚠ SOLO DESARROLLO: permite saltar el gate de licencia al correr npm start.
+  // Doble candado: requiere entorno NO empaquetado (NODE_ENV !== 'production',
+  // que main.js fuerza a 'production' en el build) + bandera explícita.
+  // En el .exe de producción esto queda inerte por diseño.
+  if (process.env.NODE_ENV !== 'production' && process.env.BODEGAPP_DEV_NO_LICENSE === '1') {
+    return true;
+  }
   const now = Date.now();
   if (now - _licenseCache.at < LICENSE_CACHE_TTL_MS) return _licenseCache.value;
   let value = false;
