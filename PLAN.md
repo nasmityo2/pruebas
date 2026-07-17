@@ -121,11 +121,11 @@ Crear y mantener:
 
 # FASE 1 — Contención inmediata de secretos
 
-- [ ] Revocar/rotar la clave privada de licencia incluida en el ZIP y cualquier secreto de `.env`.
-- [ ] Generar nuevo par de firma en un entorno separado; privada fuera del repo y de la máquina de build cliente.
-- [ ] Invalidar licencias/tokens emitidos por claves comprometidas según estrategia documentada.
-- [ ] Eliminar del árbol de trabajo todos los datos runtime: `.env`, `*.lic`, `*.key`, JSON de usuarios/licencias/trials y logs.
-- [ ] Purgar secretos del historial Git con `git filter-repo`; verificar clones nuevos.
+- [!] Revocar/rotar la clave privada de licencia incluida en el ZIP y cualquier secreto de `.env`.
+- [!] Generar nuevo par de firma en un entorno separado; privada fuera del repo y de la máquina de build cliente.
+- [!] Invalidar licencias/tokens emitidos por claves comprometidas según estrategia documentada.
+- [x] Eliminar del árbol de trabajo todos los datos runtime: `.env`, `*.lic`, `*.key`, JSON de usuarios/licencias/trials y logs.
+- [-] Purgar secretos del historial Git con `git filter-repo`; verificar clones nuevos.
 - [ ] Ampliar `check-no-secrets` para escanear repositorio, staged files, historial reciente y artefacto final, no solo “lo empaquetable”.
 - [ ] Añadir pre-commit/pre-push y CI que bloqueen secretos, archivos de cliente y llaves.
 - [ ] Separar físicamente `stokko-client` y `stokko-license-server` con permisos distintos.
