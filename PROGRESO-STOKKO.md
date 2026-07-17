@@ -101,7 +101,7 @@ La evidencia ejecutada prevalece sobre documentación histórica. Los resultados
 - Comandos: `py -3 -m git_filter_repo --force --replace-text ... --invert-paths ...`; búsquedas por ruta/marcador; `git clone --no-local ...`; `git fsck --full --no-reflogs`.
 - Resultado: árbol sin runtime sensible; repositorio y clon fresco sin rutas prohibidas; escaneos de commits `CLEAN`; fsck exit code 0.
 - Evidencia: `RELEASE-EVIDENCE/phase1-containment.md`.
-- Commit: pendiente del commit atómico de Fase 1.
+- Commit: `6a9b3f4`.
 - Riesgo residual: el remoto fue retirado automáticamente para impedir publicación accidental de historia reescrita; cualquier réplica anterior debe eliminarse o reescribirse coordinadamente.
 
 ### Guard, hooks y CI
@@ -111,7 +111,7 @@ La evidencia ejecutada prevalece sobre documentación histórica. Los resultados
 - Comandos: `npm run check:secrets`; fixtures negativos `.key` y `.map`; `npm run prepare`; `npm run check:secrets -- --staged-only`.
 - Resultado: escaneo limpio de repo/staged/50 commits; ambos fixtures fueron bloqueados con exit code 1 esperado; hooks pre-commit/pre-push instalados; comando staged exit code 0.
 - Evidencia: `RELEASE-EVIDENCE/phase1-containment.md`.
-- Commit: pendiente del commit atómico de Fase 1.
+- Commit: `6a9b3f4`.
 - Riesgo residual: CI debe ejecutarse también en el proveedor remoto cuando se configure el nuevo remoto.
 
 ### Separación de autoridad
@@ -121,5 +121,5 @@ La evidencia ejecutada prevalece sobre documentación histórica. Los resultados
 - Comandos: `git mv license-server stokko-license-server`; `npm ci` en servidor; prueba/aplicación de ACL; `npm test`; `npm run package -- --arch=x64`; inspección programática del ASAR.
 - Resultado: servidor con paquete/lock/dependencias/ACL propios; scripts cliente sin fallback a clave privada; 90/90 tests pass y smokes backend/Electron OK sin `.env`; ASAR 7320 entradas y 0 rutas/archivos prohibidos; `[CLIENT_PUBLIC_KEY_ONLY_OK]`.
 - Evidencia: `RELEASE-EVIDENCE/phase1-containment.md`.
-- Commit: pendiente del commit atómico de Fase 1.
+- Commit: `6a9b3f4`.
 - Riesgo residual: la clave pública de producción se sustituirá al recibir el nuevo `kid` externo; las pruebas no dependen de ese secreto y generan pares efímeros.
