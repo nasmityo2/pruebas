@@ -133,7 +133,7 @@ La evidencia ejecutada prevalece sobre documentación histórica. Los resultados
 - Comandos: `py -3 scripts/build-brand-assets.py`; verificación Pillow de dimensiones/frames; `npm run make -- --arch=x64`; `certutil -hashfile ... SHA256`.
 - Resultado: producto/EXE/MSI/ZIP/shortcuts Stokko; ICO con 7 resoluciones; logo/splash/installer assets revisados; MSI y ZIP generados.
 - Artefactos y hashes: `RELEASE-EVIDENCE/phase2-rebrand.md`.
-- Commit: pendiente del commit atómico de Fase 2.
+- Commit: `ca5e894`.
 - Riesgo residual: los artefactos de esta fase aún no aplican blindaje/fuses/integridad final.
 
 ### Migración y rollback
@@ -143,7 +143,7 @@ La evidencia ejecutada prevalece sobre documentación histórica. Los resultados
 - Comando: `node --require ./test/setup-env.js --test test/stokkoMigration.units.test.js`.
 - Resultado: 4/4 pass; backup con checksum, lock, staging, idempotencia, corrupción fail-closed, preservación integral y rollback verificados.
 - Evidencia: `RELEASE-EVIDENCE/phase2-rebrand.md`.
-- Commit: pendiente del commit atómico de Fase 2.
+- Commit: `ca5e894`.
 - Riesgo residual: el origen legacy no se borra automáticamente; queda como capa adicional de recuperación y debe retirarse solo por política del usuario.
 
 ### Regresión y artefactos
@@ -151,5 +151,5 @@ La evidencia ejecutada prevalece sobre documentación histórica. Los resultados
 - Fecha: 2026-07-17
 - Comandos: `npm test`; `npm run test:smoke`; búsqueda Git case-insensitive; inspección programática de ASAR; dos ejecuciones de `npm run make -- --arch=x64`.
 - Resultado: 94/94 tests pass; smokes OK; 0 referencias antiguas en fuente distribuida y 0 en 3724 entradas de texto ASAR; primer make falló por WiX ausente, repetición con WiX portable 3.14.1 exit code 0.
-- Commit: pendiente del commit atómico de Fase 2.
+- Commit: `ca5e894`.
 - Riesgo residual: pruebas físicas de instalación y actualización quedan en la matriz externa Windows.
