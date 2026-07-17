@@ -42,13 +42,13 @@ function fromB64url(str) {
   return Buffer.from(str, 'base64');
 }
 
-function verifyToken(token) {
+function verifyToken(token, publicKey = PUBLIC_KEY) {
   try {
     if (!token || typeof token !== 'string') return null;
     const parts = token.split('.');
     if (parts.length !== 2) return null;
     const [body, sig] = parts;
-    const ok = crypto.verify('RSA-SHA256', Buffer.from(body), PUBLIC_KEY, fromB64url(sig));
+    const ok = crypto.verify('RSA-SHA256', Buffer.from(body), publicKey, fromB64url(sig));
     if (!ok) return null;
     const payload = JSON.parse(fromB64url(body).toString('utf8'));
 

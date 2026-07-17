@@ -16,8 +16,8 @@ M  public/activacion.html
 The activation page modification predates this session and was preserved.
 The ZIP files are quarantined inputs and must not be committed or shipped.
 
-Baseline commit:
-db09f04bdfef703e7df7360ab84d0f5678894719
+Baseline commit after mandatory history purge:
+4f3c8cb12a9bcdd64131b008a1a6baa9134b49ac
 
 Tag:
 pre-stokko-audit

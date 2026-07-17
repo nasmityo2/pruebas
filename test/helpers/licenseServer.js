@@ -1,13 +1,14 @@
 // test/helpers/licenseServer.js
 // Arranca el servidor de licencias real en un proceso hijo, aislado (DATA_DIR temporal),
-// para pruebas de integración. Reutiliza las llaves reales de license-server/.
+// para pruebas de integración. Las llaves son efímeras y nunca se escriben en el repo.
 const { spawn } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
+const { getEphemeralSigningKeys } = require('./signingKeys');
 
-const SERVER_DIR = path.join(__dirname, '..', '..', 'license-server');
+const SERVER_DIR = path.join(__dirname, '..', '..', 'stokko-license-server');
 
 function getFreePort() {
   return new Promise((resolve, reject) => {
@@ -26,6 +27,9 @@ async function startLicenseServer() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bgatest-'));
   const adminUser = 'testadmin';
   const adminPass = 'test-password-123';
+  const { privateKey, publicKey: generatedPublicKey } = getEphemeralSigningKeys();
+  fs.writeFileSync(path.join(dataDir, 'private.key'), privateKey, { mode: 0o600 });
+  fs.writeFileSync(path.join(dataDir, 'public.key'), generatedPublicKey, { mode: 0o644 });
 
   const env = {
     ...process.env,
@@ -43,7 +47,7 @@ async function startLicenseServer() {
 
   const baseUrl = `http://127.0.0.1:${port}`;
   await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error('Timeout arrancando license-server')), 15000);
+    const to = setTimeout(() => reject(new Error('Timeout arrancando stokko-license-server')), 15000);
     let out = '';
     const onData = (d) => {
       out += d.toString();
@@ -51,7 +55,7 @@ async function startLicenseServer() {
     };
     child.stdout.on('data', onData);
     child.stderr.on('data', (d) => { out += d.toString(); });
-    child.on('exit', (code) => { clearTimeout(to); reject(new Error('license-server salió (code ' + code + '):\n' + out)); });
+    child.on('exit', (code) => { clearTimeout(to); reject(new Error('stokko-license-server salió (code ' + code + '):\n' + out)); });
   });
 
   const publicKey = fs.readFileSync(

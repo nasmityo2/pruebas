@@ -12,7 +12,7 @@ const crypto = require('crypto');
 function requireEnv(name) {
     const value = process.env[name];
     if (!value || !value.trim()) {
-        console.error(`[FATAL] Falta la variable de entorno obligatoria: ${name}. Configúrala en license-server/.env (ver .env.example). El servidor NO arrancará sin ella.`);
+        console.error(`[FATAL] Falta la variable de entorno obligatoria: ${name}. Configúrala en stokko-license-server/.env (ver .env.example). El servidor NO arrancará sin ella.`);
         process.exit(1);
     }
     return value.trim();
@@ -58,7 +58,7 @@ const PUBLIC_KEY_PATH = fs.existsSync(path.join(DATA_DIR, 'public.key')) ? path.
 
 const PRIVATE_KEY = fs.existsSync(PRIVATE_KEY_PATH) ? fs.readFileSync(PRIVATE_KEY_PATH, 'utf8') : null;
 if (!PRIVATE_KEY) {
-    console.error("[FATAL] No se encontró 'private.key'. Genérala con: node license-server/generate-keys.js");
+    console.error("[FATAL] No se encontró 'private.key'. Genérala en el entorno seguro del servidor.");
     process.exit(1);
 }
 const PUBLIC_KEY = fs.existsSync(PUBLIC_KEY_PATH)
@@ -121,7 +121,7 @@ function initUsers() {
         const adminPass = process.env.ADMIN_PASSWORD || '';
         if (!adminUser || !adminPass) {
             console.error('[FATAL] No hay usuarios y faltan ADMIN_USERNAME/ADMIN_PASSWORD para crear el admin inicial.');
-            console.error('        Configúralos en license-server/.env (solo para el primer arranque) y vuelve a iniciar.');
+            console.error('        Configúralos en stokko-license-server/.env (solo para el primer arranque) y vuelve a iniciar.');
             process.exit(1);
         }
         if (adminPass.length < 10) {

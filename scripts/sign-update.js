@@ -4,17 +4,17 @@
 // e imprime el sha256 + firma que se deben publicar en /api/update/publish.
 //
 // Uso:
-//   node scripts/sign-update.js <ruta-al-exe> [ruta-private.key]
+//   node scripts/sign-update.js <ruta-al-exe> <ruta-private.key>
+// La ruta también puede inyectarse con STOKKO_UPDATE_PRIVATE_KEY.
 //
 // La clave privada NUNCA se commitea (gitignored). Este script se corre en la máquina del
 // dueño al preparar un release. El cliente verifica sha256 + firma con la clave pública
 // embebida antes de ejecutar el instalador (anti-RCE).
 const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 
 const file = process.argv[2];
-const keyPath = process.argv[3] || path.join(__dirname, '..', 'license-server', 'private.key');
+const keyPath = process.argv[3] || process.env.STOKKO_UPDATE_PRIVATE_KEY;
 
 if (!file) {
   console.error('Uso: node scripts/sign-update.js <ruta-al-exe> [ruta-private.key]');
@@ -24,9 +24,8 @@ if (!fs.existsSync(file)) {
   console.error('[ERROR] No existe el archivo:', file);
   process.exit(1);
 }
-if (!fs.existsSync(keyPath)) {
-  console.error('[ERROR] No existe la clave privada:', keyPath);
-  console.error('        Genérala con: node license-server/generate-keys.js');
+if (!keyPath || !fs.existsSync(keyPath)) {
+  console.error('[ERROR] Falta una clave privada externa para firmar la actualización.');
   process.exit(1);
 }
 

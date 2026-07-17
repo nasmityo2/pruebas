@@ -7,10 +7,9 @@ const path = require('node:path');
 const os = require('node:os');
 
 const integrity = require('../src/security/integrity');
-const licenseUtil = require('../src/utils/license');
+const { getEphemeralSigningKeys } = require('./helpers/signingKeys');
 
-const PRIVATE_KEY = fs.readFileSync(path.join(__dirname, '..', 'license-server', 'private.key'), 'utf8');
-const PUBLIC_KEY = licenseUtil.getPublicKey();
+const { privateKey: PRIVATE_KEY, publicKey: PUBLIC_KEY } = getEphemeralSigningKeys();
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'bga-integ-'));

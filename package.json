@@ -18,10 +18,11 @@
     "license": "node generate_offline_license.js",
     "build:32": "npm run build:css:prod && npm run make:32",
     "dev": "nodemon server.js",
-    "test": "node --experimental-sqlite --test",
+    "test": "node --require ./test/setup-env.js --experimental-sqlite --test",
     "test:smoke:backend": "node scripts/smoke-backend.js",
     "test:smoke:electron": "node scripts/smoke-electron.js",
     "test:smoke": "npm run test:smoke:backend && npm run test:smoke:electron",
+    "prepare": "simple-git-hooks",
     "clean:dev": "node scripts/clean-dev.js",
     "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch",
     "build:css:prod": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --minify"
@@ -39,7 +40,6 @@
     "fast-csv": "^5.0.1",
     "fastify": "^4.21.0",
     "form-data": "^4.0.5",
-    "jsonwebtoken": "^9.0.3",
     "node-machine-id": "^1.1.12",
     "pdfkit": "^0.15.0",
     "portfinder": "^1.0.38",
@@ -57,6 +57,11 @@
     "electron": "22.3.27",
     "nodemon": "^3.1.0",
     "postcss": "^8.4.38",
+    "simple-git-hooks": "2.13.1",
     "tailwindcss": "^3.4.3"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm run check:secrets -- --staged-only",
+    "pre-push": "npm run check:secrets && npm test"
   }
 }

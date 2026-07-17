@@ -1,0 +1,57 @@
+name: Security and baseline
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      TRIAL_SECRET_KEY: ci-test-trial-key-32-bytes-minimum
+      HIST_SECRET: ci-test-history-key-32-bytes-minimum
+      HASH_SECRET: ci-test-password-key-32-bytes-minimum
+      DOTENV_CONFIG_QUIET: "true"
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            stokko-license-server/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Install license server dependencies
+        run: npm ci
+        working-directory: stokko-license-server
+
+      - name: Reject secrets
+        run: npm run check:secrets
+
+      - name: Run unit and integration tests
+        run: npm test
+
+      - name: Run backend and Electron smokes
+        run: npm run test:smoke
+
+      - name: Build production CSS
+        run: npm run build:css:prod
+
+      - name: Package baseline application
+        run: npm run package -- --arch=x64
+
+      - name: Scan package for secrets
+        run: node scripts/check-no-secrets.js --artifact out

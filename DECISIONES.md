@@ -31,3 +31,27 @@
 - Alternativas: instalar ClangCL globalmente; conservar un addon nativo no mantenido; invocar PowerShell para imprimir.
 - Razón: `npm ci` fallaba de forma reproducible por el toolset ClangCL, el addon añadía superficie nativa para x64/ia32 y el repositorio no consumía impresión RAW binaria. Electron ya ofrece la capacidad necesaria sin shell.
 - Riesgo residual: la impresión RAW binaria queda rechazada explícitamente; impresoras que dependan exclusivamente de comandos ESC/POS sin driver requieren un adaptador nativo separado y firmado, no código shell.
+
+## D-005 — Reescritura obligatoria del historial
+
+- Fecha: 2026-07-17
+- Decisión: usar `git-filter-repo` sobre todas las referencias, retirar rutas runtime/credenciales y reemplazar marcadores comprometidos; verificar desde clon nuevo.
+- Alternativas: borrar solo del working tree; confiar en `.gitignore`; dejar la historia y rotar únicamente.
+- Razón: un secreto borrado del último commit sigue recuperable desde objetos Git. El backup externo y el tag permiten recuperación controlada.
+- Riesgo residual: clones/remotos anteriores conservan la historia vieja hasta ser eliminados o reescritos; publicar el nuevo historial requiere coordinación explícita.
+
+## D-006 — Autoridad separada del cliente
+
+- Fecha: 2026-07-17
+- Decisión: mantener `stokko-license-server/` como paquete desplegable independiente con lockfile, dependencias y ACL propios; excluirlo completamente del ASAR.
+- Alternativas: compartir dependencias raíz; incluir servidor en el cliente pero ignorar la privada; depender solo de ASAR.
+- Razón: reduce superficie y evita que el proceso de build cliente tenga una razón técnica para acceder a autoridad, datos o clave privada.
+- Riesgo residual: el repositorio fuente aún contiene el código público del servicio para desarrollo coordinado; producción debe desplegarlo con cuenta/secret manager independientes.
+
+## D-007 — Claves de prueba efímeras
+
+- Fecha: 2026-07-17
+- Decisión: generar pares RSA de prueba en memoria y escribirlos solo en directorios temporales aislados para integración.
+- Alternativas: versionar una privada de fixture; reutilizar la privada recibida; omitir pruebas criptográficas.
+- Razón: conserva pruebas reales de firma/verificación sin introducir una clave privada, aunque sea de test, en el repositorio o artefacto.
+- Riesgo residual: los tests validan el protocolo criptográfico, no la custodia HSM de producción.

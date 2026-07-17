@@ -8,8 +8,8 @@ Este registro no incluye valores de secretos, tokens, licencias ni datos persona
 - Ubicación: archivos ignorados del árbol recibido y archivos ZIP de entrega.
 - Reproducción: inventario de nombres del árbol inicial; no se leyeron ni imprimieron valores.
 - Impacto: una clave privada de licencias o credencial incluida en una entrega debe considerarse comprometida.
-- Corrección: pendiente de Fase 1: cuarentena/eliminación, rotación externa, nueva autoridad y guard ampliado.
-- Prueba: pendiente de escaneo de árbol, historial y artefactos.
+- Corrección: material eliminado; rutas/marcadores purgados del historial; guard multi-scope, hooks y CI añadidos; autoridad separada. Rotación/revocación real registrada como acción externa EA-001/EA-002.
+- Prueba: escaneo limpio de árbol/staged/historial; clon fresco + fsck; ASAR sin servidor ni runtime; ver `RELEASE-EVIDENCE/phase1-containment.md`.
 
 ## H-002 — Pipeline de protección incompleto
 
@@ -46,3 +46,12 @@ Este registro no incluye valores de secretos, tokens, licencias ni datos persona
 - Impacto: una instalación limpia no era reproducible y el addon debía reconstruirse para dos arquitecturas antiguas.
 - Corrección: dependencia retirada; inventario e impresión migrados a APIs `webContents` de Electron; entrada binaria rechazada y texto escapado/limitado.
 - Prueba: segundo `npm ci` raíz, 819 paquetes, exit code 0; regresión IPC/impresión pendiente de Fase 5.
+
+## H-006 — El predicado de packaging no excluía rutas relativas de Forge
+
+- Severidad: crítica.
+- Ubicación: `scripts/packaging-ignore.js`.
+- Reproducción: extracción/listado del ASAR mostró `stokko-license-server/` completo pese a estar en la lista de exclusión; Forge entrega rutas relativas y el predicado solo comparaba contra rutas absolutas.
+- Impacto: código del servidor y dependencias se distribuían al cliente; una futura clave colocada allí habría podido filtrarse.
+- Corrección: normalización única de ruta absoluta/relativa y exclusión por ruta relativa raíz.
+- Prueba: tres tests de regresión; package repetido; ASAR 7320 entradas con 0 coincidencias del servidor, `.env`, claves o datos runtime.

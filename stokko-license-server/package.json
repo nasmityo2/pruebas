@@ -1,7 +1,7 @@
 {
-    "name": "bodegapp-license-server",
+    "name": "stokko-license-server",
     "version": "1.0.0",
-    "description": "Servidor de activación de licencias online para BodegApp",
+    "description": "Autoridad remota de licencias para Stokko",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"

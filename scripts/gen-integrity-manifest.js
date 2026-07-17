@@ -5,18 +5,18 @@
 // desarrollo. Hashea los archivos críticos y firma el manifiesto con la clave privada.
 //
 // Uso:
-//   node scripts/gen-integrity-manifest.js [baseDir] [ruta-private.key]
-// Por defecto baseDir = raíz del proyecto y la clave = license-server/private.key.
+//   node scripts/gen-integrity-manifest.js [baseDir] <ruta-private.key>
+// La ruta también puede inyectarse con STOKKO_INTEGRITY_PRIVATE_KEY.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const integrity = require('../src/security/integrity');
 
 const baseDir = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..');
-const keyPath = process.argv[3] || path.join(__dirname, '..', 'license-server', 'private.key');
+const keyPath = process.argv[3] || process.env.STOKKO_INTEGRITY_PRIVATE_KEY;
 
-if (!fs.existsSync(keyPath)) {
-  console.error('[ERROR] No existe la clave privada:', keyPath);
+if (!keyPath || !fs.existsSync(keyPath)) {
+  console.error('[ERROR] Falta una clave privada externa para firmar el manifiesto.');
   process.exit(1);
 }
 

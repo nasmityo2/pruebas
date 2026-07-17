@@ -21,6 +21,9 @@ async function main() {
   process.env.PROGRAMDATA = path.join(tempRoot, 'programdata');
   process.env.NODE_ENV = 'test';
   process.env.DOTENV_CONFIG_QUIET = 'true';
+  process.env.TRIAL_SECRET_KEY ||= 'stokko-smoke-trial-key-32-bytes-minimum';
+  process.env.HIST_SECRET ||= 'stokko-smoke-history-key-32-bytes-minimum';
+  process.env.HASH_SECRET ||= 'stokko-smoke-password-key-32-bytes-minimum';
 
   let backend;
   try {

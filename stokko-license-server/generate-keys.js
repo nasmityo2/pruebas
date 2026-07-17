@@ -2,14 +2,14 @@
 /**
  * Genera un par de llaves RSA nuevo para firmar licencias.
  *
- * - La PRIVADA se escribe en license-server/private.key (gitignored). NUNCA se commitea.
+ * - La PRIVADA se escribe en stokko-license-server/private.key (gitignored). NUNCA se commitea.
  * - La PÚBLICA se imprime por consola y debe embeberse en:
- *     - license-server/server.js  (PUBLIC_KEY, para verificar)
+ *     - stokko-license-server/server.js  (PUBLIC_KEY, para verificar)
  *     - src/utils/license.js       (PUBLIC_KEY del cliente)
  *
  * Uso:
- *   node license-server/generate-keys.js            (no sobrescribe si ya existe)
- *   node license-server/generate-keys.js --force     (rota: sobrescribe la privada)
+ *   node stokko-license-server/generate-keys.js            (no sobrescribe si ya existe)
+ *   node stokko-license-server/generate-keys.js --force     (rota: sobrescribe la privada)
  *
  * Tras rotar, todas las licencias firmadas con la llave anterior quedan inválidas
  * (esperado: no hay clientes reales todavía).

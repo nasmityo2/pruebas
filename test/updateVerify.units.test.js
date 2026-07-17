@@ -2,14 +2,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const crypto = require('node:crypto');
-const fs = require('node:fs');
-const path = require('node:path');
 
 const uv = require('../src/security/updateVerify');
-const licenseUtil = require('../src/utils/license');
+const { getEphemeralSigningKeys } = require('./helpers/signingKeys');
 
-const PRIVATE_KEY = fs.readFileSync(path.join(__dirname, '..', 'license-server', 'private.key'), 'utf8');
-const PUBLIC_KEY = licenseUtil.getPublicKey();
+const { privateKey: PRIVATE_KEY, publicKey: PUBLIC_KEY } = getEphemeralSigningKeys();
 
 function signBuf(buf) {
   return crypto.sign('RSA-SHA256', buf, PRIVATE_KEY).toString('base64');

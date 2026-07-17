@@ -5,7 +5,7 @@
 const path = require('path');
 
 const IGNORED_ROOT_FOLDERS = [
-  'UpdateServer', 'BodegAppUpdater', 'temp_extracted', 'license-server',
+  'UpdateServer', 'BodegAppUpdater', 'temp_extracted', 'stokko-license-server',
   'mobile_client', 'out', 'dist', 'build', 'test-electron',
   'nodejs-assets', 'tmp', 'Compras', 'updater', 'respaldo',
   '.git', '.agent', '.vscode', '.cursor',
@@ -34,7 +34,10 @@ const IGNORED_NODE_MODULES = [
 
 function shouldIgnore(filePath, projectRoot) {
   const normalizedPath = String(filePath).replace(/\\/g, '/');
-  const root = String(projectRoot).replace(/\\/g, '/');
+  const root = String(projectRoot).replace(/\\/g, '/').replace(/\/+$/, '');
+  const relativePath = normalizedPath.startsWith(root)
+    ? normalizedPath.slice(root.length)
+    : (normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`);
   const base = path.basename(normalizedPath);
 
   if (normalizedPath.endsWith('.asar') || normalizedPath.includes('.asar.unpacked')) return true;
@@ -42,7 +45,7 @@ function shouldIgnore(filePath, projectRoot) {
   if (IGNORED_NODE_MODULES.some(p => normalizedPath.includes(p))) return true;
 
   for (const folder of IGNORED_ROOT_FOLDERS) {
-    if (normalizedPath === `${root}/${folder}` || normalizedPath.startsWith(`${root}/${folder}/`)) return true;
+    if (relativePath === `/${folder}` || relativePath.startsWith(`/${folder}/`)) return true;
   }
 
   // .env y variantes (pero permitir .env.example como plantilla sin secretos).
