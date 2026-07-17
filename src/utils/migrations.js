@@ -90,6 +90,32 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    name: '2026_07_17_sale_snapshots_and_payment_soft_delete',
+    up() {
+      addColumnIfMissing('venta_productos', 'presentacion_id INTEGER', 'presentacion_id');
+      addColumnIfMissing('venta_productos', 'presentacion_nombre TEXT', 'presentacion_nombre');
+      addColumnIfMissing('venta_productos', 'cantidad_venta REAL', 'cantidad_venta');
+      addColumnIfMissing('venta_productos', 'unidades_base REAL NOT NULL DEFAULT 1', 'unidades_base');
+      addColumnIfMissing('venta_productos', 'tasa_bcv_momento REAL', 'tasa_bcv_momento');
+      addColumnIfMissing('venta_productos', 'impuesto_unitario_ves REAL NOT NULL DEFAULT 0', 'impuesto_unitario_ves');
+      addColumnIfMissing('venta_productos', 'precio_origen TEXT', 'precio_origen');
+      addColumnIfMissing('venta_productos', 'moneda_precio TEXT', 'moneda_precio');
+      addColumnIfMissing('venta_pagos', 'activo INTEGER NOT NULL DEFAULT 1', 'activo');
+      addColumnIfMissing('venta_pagos', 'anulado_en DATETIME', 'anulado_en');
+      addColumnIfMissing('venta_pagos', 'motivo_anulacion TEXT', 'motivo_anulacion');
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_venta_pagos_activo ON venta_pagos(venta_id, activo);
+        CREATE TABLE IF NOT EXISTS sale_requests (
+          request_id TEXT PRIMARY KEY NOT NULL,
+          venta_id INTEGER,
+          response_json TEXT,
+          creado_en DATETIME DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY (venta_id) REFERENCES ventas(id)
+        );
+      `);
+    },
+  },
 ];
 
 function runMigrations() {

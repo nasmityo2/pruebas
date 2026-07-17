@@ -162,10 +162,10 @@ Crear y mantener:
 
 # FASE 3 — Corrección funcional y de datos
 
-- [ ] Construir tests de contrato de todas las rutas y controladores.
-- [ ] Recalcular totales de ventas server-side desde productos/precios/tasa vigente; no confiar en totales del renderer.
-- [ ] Congelar tasa, precio, impuestos, presentación y costo histórico por línea de venta.
-- [ ] Revisar transacciones atómicas: venta, stock, pagos, abonos, Cashea, anulación y cierres.
+- [x] Construir tests de contrato de todas las rutas y controladores.
+- [x] Recalcular totales de ventas server-side desde productos/precios/tasa vigente; no confiar en totales del renderer.
+- [x] Congelar tasa, precio, impuestos, presentación y costo histórico por línea de venta.
+- [-] Revisar transacciones atómicas: venta, stock, pagos, abonos, Cashea, anulación y cierres.
 - [ ] Eliminar borrados físicos restantes de datos financieros; migrar `venta_pagos` a soft-delete con índices y filtros.
 - [ ] Validar concurrencia, líneas duplicadas, stock insuficiente y doble submit.
 - [ ] Completar cierre Z antes de generar PDF y garantizar consistencia del snapshot.

@@ -5,6 +5,8 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
+const salePricing = require('../src/services/salePricing');
+const adminUnlock = require('../src/utils/adminUnlock');
 
 // ===== STATEMENTS GENERALES =====
 
@@ -29,7 +31,10 @@ const createProductStmt = db.prepare(
   'INSERT INTO productos (nombre, costo, moneda_costo, porcentaje_ganancia, stock, categoria, tipo_venta, proveedor, barcode, costo_bulto, unidades_bulto) VALUES (@nombre, @costo, @moneda_costo, @porcentaje_ganancia, @stock, @categoria, @tipo_venta, @proveedor, @barcode, @costo_bulto, @unidades_bulto)'
 );
 const getProductByIdStmt = db.prepare(
-  'SELECT id, nombre, stock, costo, moneda_costo, porcentaje_ganancia, tipo_venta, proveedor, categoria, barcode, costo_bulto, unidades_bulto, exento_iva FROM productos WHERE id = ?'
+  'SELECT id, nombre, stock, costo, moneda_costo, porcentaje_ganancia, tipo_venta, proveedor, categoria, barcode, costo_bulto, unidades_bulto, exento_iva, activo FROM productos WHERE id = ?'
+);
+const getPresentationForSaleStmt = db.prepare(
+  'SELECT id, producto_id, nombre, unidades_base, precio_ves, precio_usd_bcv, moneda, precio, activo FROM presentaciones WHERE id = ?'
 );
 const updateProductStmt = db.prepare(
   'UPDATE productos SET nombre = @nombre, costo = @costo, moneda_costo = @moneda_costo, porcentaje_ganancia = @porcentaje_ganancia, stock = @stock, categoria = @categoria, tipo_venta = @tipo_venta, proveedor = @proveedor, barcode = @barcode, costo_bulto = @costo_bulto, unidades_bulto = @unidades_bulto WHERE id = @id'
@@ -61,7 +66,9 @@ const getSaleProductsBySaleIdStmt = db.prepare(`
   LEFT JOIN productos p ON CAST(vp.producto_id AS TEXT) = CAST(p.id AS TEXT) 
   WHERE vp.venta_id = ?
 `);
-const getSalePaymentsBySaleIdStmt = db.prepare('SELECT * FROM venta_pagos WHERE venta_id = ?');
+const getSalePaymentsBySaleIdStmt = db.prepare(
+  'SELECT * FROM venta_pagos WHERE venta_id = ? AND COALESCE(activo, 1) = 1'
+);
 
 // 🔴 IMPORTANTE: sólo abonos ACTIVOS (anulado = 0)
 const getAbonosBySaleIdStmt = db.prepare(`
@@ -205,7 +212,7 @@ function recalcSalePendingAndStatus(saleId) {
     const totalVes = Number(sale.total_ves) || 0;
     if (totalVes > 0) {
       // Intentar buscar una tasa histórica en los pagos o abonos para no usar la de hoy (que haría bajar la deuda)
-      const firstPaymentWithRate = db.prepare("SELECT tasa_bcv_momento FROM venta_pagos WHERE venta_id = ? AND tasa_bcv_momento > 0 LIMIT 1").get(saleId);
+      const firstPaymentWithRate = db.prepare("SELECT tasa_bcv_momento FROM venta_pagos WHERE venta_id = ? AND COALESCE(activo, 1) = 1 AND tasa_bcv_momento > 0 LIMIT 1").get(saleId);
       const firstAbonoWithRate = db.prepare("SELECT tasa_bcv_momento FROM abonos WHERE venta_id = ? AND tasa_bcv_momento > 0 LIMIT 1").get(saleId);
       
       let historicalRate = 0;
@@ -360,232 +367,159 @@ function recalcSalePendingAndStatus(saleId) {
 
 // ===== VENTA: CREAR =====
 
-const processSaleTransaction = db.transaction(
-  (cart, payments, totalVes, totalUsd, rates, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, nota) => {
-    const productDetails = {};
+const processSaleTransaction = db.transaction((sale) => {
+  const ventaInfo = db.prepare(`
+    INSERT INTO ventas (
+      total_ves, total_usd_bcv, cliente_id, estado_pago, monto_pendiente_usd,
+      impuesto_total, archivado, nota, tasa_bcv
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    sale.pricing.totalVes,
+    sale.pricing.totalUsd,
+    sale.clienteId,
+    sale.estadoPago,
+    sale.montoPendienteUsd,
+    sale.pricing.taxTotalVes,
+    sale.estadoPago === 'PAGADO' ? 1 : 0,
+    sale.nota,
+    sale.pricing.bcv,
+  );
+  const ventaId = ventaInfo.lastInsertRowid;
 
-    for (const item of cart) {
-      if (typeof item.id === 'string' && item.id.startsWith('vl-')) {
-        continue;
-      }
-      const product = getProductByIdStmt.get(item.id);
-      if (!product) throw new Error(`Product with ID ${item.id} not found.`);
-      if (product.stock < item.quantity) {
-        throw new Error(
-          `Stock insufficient for ${product.nombre}. Available: ${product.stock}, Required: ${item.quantity}`
-        );
-      }
-      productDetails[item.id] = product;
+  const insertLine = db.prepare(`
+    INSERT INTO venta_productos (
+      venta_id, producto_id, cantidad, precio_unitario_ves, costo_unitario_ves,
+      nombre, exento_iva, presentacion_id, presentacion_nombre, cantidad_venta,
+      unidades_base, tasa_bcv_momento, impuesto_unitario_ves, precio_origen, moneda_precio
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const updateStock = db.prepare(
+    'UPDATE productos SET stock = stock - ? WHERE id = ? AND activo = 1 AND stock >= ?'
+  );
+  for (const line of sale.pricing.lines) {
+    insertLine.run(
+      ventaId,
+      line.productId,
+      line.quantity,
+      line.unitPriceVes,
+      line.costUnitVes,
+      line.name,
+      line.exempt ? 1 : 0,
+      line.presentationId,
+      line.presentationName,
+      line.saleQuantity,
+      line.unitsBase,
+      sale.pricing.bcv,
+      line.quantity > 0 ? salePricing.round4(line.tax / line.quantity) : 0,
+      line.priceSource,
+      line.priceCurrency,
+    );
+    if (line.productId !== null) {
+      const result = updateStock.run(line.quantity, line.productId, line.quantity);
+      if (result.changes !== 1) throw new Error(`Stock insuficiente para el producto ${line.productId}.`);
     }
-
-    // Congelar la tasa BCV del momento de la venta (Fase 5): cambios futuros de tasa
-    // NO afectan esta venta. Guardamos la tasa vigente usada en el cálculo.
-    const tasaBcvVenta = (!isNaN(rates.BCV) && rates.BCV > 0)
-      ? Number(rates.BCV)
-      : (totalUsd > 0 ? totalVes / totalUsd : 0);
-
-    const ventaInfo = db
-      .prepare(
-        'INSERT INTO ventas (total_ves, total_usd_bcv, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, archivado, nota, tasa_bcv) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      )
-      .run(totalVes, totalUsd, cliente_id, estado_pago, monto_pendiente_usd, impuesto_total, (estado_pago === 'PAGADO' ? 1 : 0), nota, tasaBcvVenta);
-    const ventaId = ventaInfo.lastInsertRowid;
-
-    // Insertar productos y descontar stock
-    for (const item of cart) {
-      const isVentaLibre = typeof item.id === 'string' && item.id.startsWith('vl-');
-      let costoUnitarioVes = 0;
-
-      if (isVentaLibre) {
-        costoUnitarioVes = item.costVes || 0;
-      } else {
-        const productData = productDetails[item.id];
-        costoUnitarioVes = calculateInternalCostVes(productData, rates);
-      }
-
-      db.prepare(
-        'INSERT INTO venta_productos (venta_id, producto_id, cantidad, precio_unitario_ves, costo_unitario_ves, nombre, exento_iva) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(
-        ventaId,
-        isVentaLibre ? null : item.id,
-        item.quantity,
-        item.priceVes,
-        costoUnitarioVes,
-        isVentaLibre ? item.name : item.name,
-        isVentaLibre ? (item.exento_iva ? 1 : 0) : (productDetails[item.id] ? productDetails[item.id].exento_iva : 1)
-      );
-
-      if (!isVentaLibre) {
-        // Anexo A A.4: la guarda `AND stock >= ?` evita stock NEGATIVO aunque el mismo
-        // producto aparezca en varias líneas del carrito o por una carrera. Si no se puede
-        // descontar (stock insuficiente), `changes` será 0 y la transacción se revierte.
-        const stockUpdateInfo = db
-          .prepare('UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?')
-          .run(item.quantity, item.id, item.quantity);
-        if (stockUpdateInfo.changes !== 1) {
-          throw new Error(
-            `Stock insuficiente o inconsistente para el producto ID ${item.id} (evitado stock negativo).`
-          );
-        }
-      }
-    }
-
-    // Insertar pagos iniciales
-    const activeMethods = db.prepare('SELECT * FROM metodos_pago WHERE activo = 1').all();
-    const methodsMap = activeMethods.reduce((obj, m) => { obj[m.key] = m; return obj; }, {});
-
-    for (const payment of payments) {
-      const methodConfig = methodsMap[payment.method];
-      if (!methodConfig) {
-        throw new Error(`Invalid payment method received: ${payment.method}`);
-      }
-
-      const currency = methodConfig.moneda;
-      let rateUsed = rates.BCV;
-      if (currency === 'USD' && payment.amountReceived > 0) {
-        rateUsed = payment.amountInVes / payment.amountReceived;
-      }
-
-      db.prepare(
-        'INSERT INTO venta_pagos (venta_id, metodo, monto_recibido, monto_en_ves, tasa_bcv_momento) VALUES (?, ?, ?, ?, ?)'
-      ).run(
-        ventaId,
-        payment.method,
-        payment.amountReceived,
-        payment.amountInVes,
-        rateUsed
-      );
-    }
-
-    return ventaId;
   }
-);
+
+  const insertPayment = db.prepare(`
+    INSERT INTO venta_pagos (
+      venta_id, metodo, monto_recibido, monto_en_ves, tasa_bcv_momento, activo
+    ) VALUES (?, ?, ?, ?, ?, 1)
+  `);
+  for (const payment of sale.paymentResult.payments) {
+    insertPayment.run(
+      ventaId,
+      payment.method,
+      payment.amountReceived,
+      payment.amountInVes,
+      payment.conversionRate,
+    );
+  }
+
+  const replay = {
+    saleId: Number(ventaId),
+    estado_pago: sale.estadoPago,
+    monto_pendiente: salePricing.round2(Math.max(0, sale.pricing.totalVes - sale.paymentResult.totalPaidVes)),
+    monto_pendiente_usd: sale.montoPendienteUsd,
+    impuesto_total: sale.pricing.taxTotalVes,
+    total_ves: sale.pricing.totalVes,
+    total_usd: sale.pricing.totalUsd,
+  };
+  db.prepare(
+    'INSERT INTO sale_requests (request_id, venta_id, response_json) VALUES (?, ?, ?)'
+  ).run(sale.requestId, ventaId, JSON.stringify(replay));
+  return replay;
+});
 
 const processSale = (req, res) => {
-  const { cart, payments, totalVes, totalUsd, cliente_id, roundingAdjustment, nota } = req.body;
-
-  if (!Array.isArray(cart) || cart.length === 0)
-    return res.status(400).json({ error: 'Cart is empty or invalid.' });
-  if (!Array.isArray(payments))
-    return res.status(400).json({ error: 'Payment information is missing or invalid.' });
-  if (isNaN(parseFloat(totalVes)) || isNaN(parseFloat(totalUsd)))
-    return res.status(400).json({ error: 'Total amounts are missing or invalid.' });
-
+  const { cart, payments, cliente_id, nota } = req.body || {};
+  const requestId = String(req.headers['x-idempotency-key'] || req.body?.requestId || '').trim();
+  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId)) {
+    return res.status(400).json({ error: 'Falta una clave de idempotencia válida.' });
+  }
   try {
+    const existing = db.prepare('SELECT response_json FROM sale_requests WHERE request_id = ?').get(requestId);
+    if (existing && existing.response_json) {
+      return res.status(200).json({ ...JSON.parse(existing.response_json), replayed: true });
+    }
+
     const currentRates = getRates();
     if (isNaN(currentRates.BCV) || currentRates.BCV <= 0) {
       throw new Error('Tasa BCV no configurada o inválida.');
     }
-
-    const round2 = (n) => Math.round(n * 100) / 100;
-    const final_cliente_id = cliente_id || null;
-    const round4 = (n) => Math.round(n * 10000) / 10000;
-
-    let finalTotalVes = round2(parseFloat(totalVes));
-    const finalTotalUsd = round4(parseFloat(totalUsd));
-
-    let totalPagadoVes = 0;
-    payments.forEach((p) => {
-      totalPagadoVes += p.amountInVes;
-    });
-
-    const USD_TOLERANCE = 0.0001;
-
     const activeMethods = db.prepare('SELECT * FROM metodos_pago WHERE activo = 1').all();
-    const methodsMap = activeMethods.reduce((obj, m) => { obj[m.key] = m; return obj; }, {});
-
-    let totalPagadoUsdEstimado = 0;
-    payments.forEach(p => {
-      const methodConfig = methodsMap[p.method];
-      const currency = methodConfig ? methodConfig.moneda : 'VES';
-      
-      let valUsd = 0;
-      if (currency === 'USD') {
-        valUsd = p.amountReceived;
-      } else {
-        valUsd = p.amountInVes / currentRates.BCV;
-      }
-      totalPagadoUsdEstimado += valUsd;
-    });
-
-    const remainingVes = finalTotalVes - totalPagadoVes;
-    const faltanteUsd = Math.max(0, remainingVes) / currentRates.BCV;
-    const faltanteVes = Number(Math.max(0, remainingVes).toFixed(2));
-
-    let estado_pago = 'PAGADO';
-    let monto_pendiente_usd = 0;
-
-    // Se consideran créditos sólo si supera la tolerancia de USD (0.05) y la tolerancia de VES (0.50)
-    if (faltanteUsd > 0.05 && remainingVes > 0.50) {
-      if (totalPagadoUsdEstimado > 0.01) {
-        estado_pago = 'ABONADO';
-      } else {
-        estado_pago = 'FIADO';
-      }
-
-      if (final_cliente_id === null) {
-        return res.status(400).json({
-          error: 'Se debe seleccionar un cliente para guardar una venta a crédito.',
-        });
-      }
-
-      monto_pendiente_usd = round4(faltanteUsd);
-      if (monto_pendiente_usd < 0) monto_pendiente_usd = 0;
-    }
-
-    let totalImpuestoVes = 0;
-    const ivaPercentage = currentRates.IVA_PERCENTAGE !== undefined ? parseFloat(currentRates.IVA_PERCENTAGE) : 16.0;
-    const ivaRate = ivaPercentage / 100;
-    const ivaMode = currentRates.IVA_MODE === 'EXCLUDED' ? 'EXCLUDED' : 'INCLUDED';
-
-    for (const item of cart) {
-      const isVentaLibre = typeof item.id === 'string' && item.id.startsWith('vl-');
-      let isExempt = true;
-
-      if (isVentaLibre) {
-        isExempt = !!item.exento_iva;
-      } else {
-        const product = getProductByIdStmt.get(item.id);
-        isExempt = !product || (product.exento_iva === 1 || product.exento_iva === true);
-      }
-
-      if (!isExempt) {
-        const lineTotal = item.priceVes * item.quantity;
-        if (ivaMode === 'EXCLUDED') {
-          totalImpuestoVes += (lineTotal * ivaRate);
-        } else {
-          const base = lineTotal / (1 + ivaRate);
-          totalImpuestoVes += (lineTotal - base);
-        }
-      }
-    }
-    const finalImpuestoVes = Number(totalImpuestoVes.toFixed(2));
-
-    const saleId = processSaleTransaction(
+    const customRates = db.prepare('SELECT key, valor FROM tasas_personalizadas WHERE activo = 1')
+      .all()
+      .reduce((result, rate) => {
+        result[rate.key] = Number(rate.valor);
+        return result;
+      }, {});
+    const allowPriceOverride = adminUnlock.verifyUnlock(adminUnlock.tokenFromReq(req));
+    const pricing = salePricing.buildCanonicalLines({
       cart,
+      rates: currentRates,
+      getProduct: (id) => getProductByIdStmt.get(id),
+      getPresentation: (id) => getPresentationForSaleStmt.get(id),
+      allowPriceOverride,
+    });
+    const paymentResult = salePricing.buildCanonicalPayments({
       payments,
-      finalTotalVes,
-      finalTotalUsd,
-      currentRates,
-      final_cliente_id,
-      estado_pago,
-      monto_pendiente_usd,
-      finalImpuestoVes,
-      nota || null
-    );
+      methods: activeMethods,
+      rates: currentRates,
+      customRates,
+    });
+    const finalClienteId = cliente_id ? Number.parseInt(cliente_id, 10) : null;
+    if (finalClienteId && !getClienteByIdStmt.get(finalClienteId)) {
+      return res.status(400).json({ error: 'Cliente inválido.' });
+    }
 
-    recalcSalePendingAndStatus(saleId);
-
+    const remainingVes = salePricing.round2(Math.max(0, pricing.totalVes - paymentResult.totalPaidVes));
+    const remainingUsd = salePricing.round4(remainingVes / pricing.bcv);
+    const isPending = remainingVes > 0.50 && remainingUsd > 0.05;
+    const estadoPago = isPending
+      ? (paymentResult.totalPaidVes > 0.01 ? 'ABONADO' : 'FIADO')
+      : 'PAGADO';
+    const montoPendienteUsd = isPending ? remainingUsd : 0;
+    if (isPending && finalClienteId === null) {
+      return res.status(400).json({
+        error: 'Se debe seleccionar un cliente para guardar una venta a crédito.',
+      });
+    }
+    const cleanNote = nota === undefined || nota === null ? null : String(nota).trim().slice(0, 500);
+    const replay = processSaleTransaction({
+      pricing,
+      paymentResult,
+      clienteId: finalClienteId,
+      estadoPago,
+      montoPendienteUsd,
+      nota: cleanNote,
+      requestId,
+    });
     const settings = loadSettings();
-
     const rawPrintTicket =
       settings.printTicket !== undefined
         ? settings.printTicket
         : (settings.printTicketEnabled !== undefined ? settings.printTicketEnabled : true);
-
     const normalizedPrintTicket = !!rawPrintTicket;
-
-
     const printMode = settings.printMode || 'preview';
     const printerName = settings.printerName || '';
     const printCopies = Number(settings.printCopies) || 1;
@@ -595,16 +529,13 @@ const processSale = (req, res) => {
     const printFooter = settings.printFooter || '';
 
     let clienteData = null;
-    if (final_cliente_id) {
-      clienteData = getClienteByIdStmt.get(final_cliente_id);
+    if (finalClienteId) {
+      clienteData = getClienteByIdStmt.get(finalClienteId);
     }
 
     res.status(201).json({
       message: 'Sale completed successfully!',
-      saleId: saleId,
-      estado_pago: estado_pago,
-      monto_pendiente: faltanteVes,
-      monto_pendiente_usd: monto_pendiente_usd,
+      ...replay,
       printTicket: normalizedPrintTicket,
       printMode,
       printerName,
@@ -619,12 +550,18 @@ const processSale = (req, res) => {
       businessRIF: settings.businessRIF || '',
       businessAddress: settings.businessAddress || '',
       businessPhone: settings.businessPhone || '',
-      impuesto_total: finalImpuestoVes,
       cliente: clienteData,
     });
   } catch (error) {
     console.error('Error processing sale transaction:', error);
-    res.status(400).json({ error: error.message || 'Failed to process sale.' });
+    if (error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      const existing = db.prepare('SELECT response_json FROM sale_requests WHERE request_id = ?').get(requestId);
+      if (existing && existing.response_json) {
+        return res.status(200).json({ ...JSON.parse(existing.response_json), replayed: true });
+      }
+    }
+    const forbidden = /requiere autorización|precio autorizado/.test(error.message || '');
+    res.status(forbidden ? 403 : 400).json({ error: error.message || 'Failed to process sale.' });
   }
 };
 

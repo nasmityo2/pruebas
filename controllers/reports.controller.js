@@ -32,6 +32,7 @@ const getSalePaymentsForDateStmt = db.prepare(`
   JOIN ventas v ON vp.venta_id = v.id
   WHERE date(v.creado_en) = date('now', 'localtime')
     AND v.estado_pago != 'ANULADO'
+    AND COALESCE(vp.activo, 1) = 1
 `);
 
 // Ventas por rango
@@ -59,6 +60,7 @@ const getSalesByDateRangeStmt = db.prepare(`
           COALESCE(SUM(p.monto_en_ves), 0)
         FROM venta_pagos p
         WHERE p.venta_id = v.id
+          AND COALESCE(p.activo, 1) = 1
   ) AS total_pagos_ves,
 
       (
@@ -124,7 +126,7 @@ v.id,
   (SELECT reconciliado FROM cashea_ventas WHERE venta_id = v.id) as cashea_reconciliado,
   c.nombre as cliente_nombre,
   (SELECT SUM(vp.costo_unitario_ves * vp.cantidad) FROM venta_productos vp WHERE vp.venta_id = v.id) AS total_costo_ves,
-    (SELECT COALESCE(SUM(p.monto_en_ves), 0) FROM venta_pagos p WHERE p.venta_id = v.id) AS total_pagos_ves,
+    (SELECT COALESCE(SUM(p.monto_en_ves), 0) FROM venta_pagos p WHERE p.venta_id = v.id AND COALESCE(p.activo, 1) = 1) AS total_pagos_ves,
     (
       SELECT 
         COALESCE(SUM(a.monto_pagado_ves), 0) 
@@ -184,10 +186,13 @@ const restoreStockStmt = db.prepare(`
   WHERE id = ?
     `);
 
-// 🔴 borrar pagos y abonos asociados a una venta anulada
-const deleteSalePaymentsStmt = db.prepare(`
-  DELETE FROM venta_pagos
-  WHERE venta_id = ?
+// Los pagos financieros se conservan y se excluyen mediante soft-delete.
+const voidSalePaymentsStmt = db.prepare(`
+  UPDATE venta_pagos
+  SET activo = 0,
+      anulado_en = datetime('now','localtime'),
+      motivo_anulacion = COALESCE(motivo_anulacion, 'Venta anulada')
+  WHERE venta_id = ? AND COALESCE(activo, 1) = 1
   `);
 
 // Regla global "NO borrar físicamente abonos": al anular una venta, sus abonos se ANULAN
@@ -224,6 +229,7 @@ const getPaymentsSummarySinceStmt = db.prepare(`
     LEFT JOIN metodos_pago mp ON vp.metodo = mp.key
     WHERE datetime(v.creado_en) > datetime(?)
       AND v.estado_pago != 'ANULADO'
+      AND COALESCE(vp.activo, 1) = 1
     GROUP BY vp.metodo
 
     UNION ALL
@@ -738,9 +744,9 @@ const voidSaleTransaction = db.transaction((saleId) => {
     restoreStockStmt.run(prod.cantidad, prod.producto_id);
   }
 
-  // 2) Borrar TODOS los pagos de esa venta (POS, vuelto, etc.)
-  const pResult = deleteSalePaymentsStmt.run(id);
-  console.log(`[VOID] Pagos POS eliminados: ${pResult.changes}`);
+  // 2) Anular pagos de la venta sin borrar historial financiero.
+  const pResult = voidSalePaymentsStmt.run(id);
+  console.log(`[VOID] Pagos POS anulados (soft-delete): ${pResult.changes}`);
 
   // 3) ANULAR (soft-delete) los abonos de esa venta (cobranza); no se borran físicamente.
   const aResult = voidSaleAbonosStmt.run(id);
@@ -772,7 +778,7 @@ const voidSale = (req, res) => {
     });
     res.json({
       success: true,
-      message: `Venta #${saleId} anulada con éxito.Se devolvió el stock y se eliminaron pagos / abonos asociados.`
+      message: `Venta #${saleId} anulada con éxito. Se devolvió el stock y se conservaron pagos/abonos anulados.`
     });
   } catch (error) {
     console.error('Error al anular la venta:', error);
@@ -1553,81 +1559,46 @@ const exportSalesReportExcel = (req, res) => {
 // ---------- Resumen de pagos del día (para Cierre Z) ----------
 // ⚠️ AQUÍ ES DONDE HACEMOS QUE, DESPUÉS DE UN CIERRE Z, EL SALDO DEL SISTEMA VUELVA A 0.
 
+function lastClosureDate() {
+  const row = getLastClosureStmt.get();
+  return row && row.last_cierre ? row.last_cierre : '1970-01-01 00:00:00';
+}
+
+function buildPaymentSummary(fromDateTime) {
+  const payments = getPaymentsSummarySinceStmt.all(fromDateTime, fromDateTime);
+  const withdrawals = getWithdrawalsSummarySinceStmt.all(fromDateTime);
+  const openingsTotals = getOpeningsTotalsSinceStmt.get(fromDateTime);
+  const byMethod = {};
+  const ensureMethod = (metodo) => {
+    if (!byMethod[metodo]) byMethod[metodo] = { metodo, total_ves: 0, total_usd: 0 };
+    return byMethod[metodo];
+  };
+  if (openingsTotals) {
+    const openingVes = Number(openingsTotals.total_opening_ves || 0);
+    const openingUsd = Number(openingsTotals.total_opening_usd || 0);
+    if (openingVes !== 0) ensureMethod('VES_EFECTIVO').total_ves += openingVes;
+    if (openingUsd !== 0) ensureMethod('USD_EFECTIVO').total_usd += openingUsd;
+  }
+  for (const row of payments) {
+    const method = ensureMethod(row.metodo);
+    method.total_ves += Number(row.total_ves || 0);
+    method.total_usd += Number(row.total_usd || 0);
+  }
+  for (const row of withdrawals) {
+    const method = ensureMethod(row.metodo);
+    method.total_ves -= Number(row.total_ves || 0);
+    method.total_usd -= Number(row.total_usd || 0);
+  }
+  return Object.values(byMethod).map((row) => ({
+    ...row,
+    total_ves: Number(row.total_ves.toFixed(2)),
+    total_usd: Number(row.total_usd.toFixed(4)),
+  }));
+}
+
 const getTodayPaymentSummary = (req, res) => {
   try {
-    // 1) Buscamos el último cierre GLOBAL (cualquier fecha)
-    let fromDateTime = '1970-01-01 00:00:00';
-    try {
-      const row = getLastClosureStmt.get();
-      if (row && row.last_cierre) {
-        fromDateTime = row.last_cierre;
-      }
-    } catch (e) {
-      console.warn('Advertencia: no se pudo obtener el último cierre de caja:', e.message);
-    }
-
-    // 2) Movimientos desde ese momento en adelante
-    const payments = getPaymentsSummarySinceStmt.all(fromDateTime, fromDateTime);
-
-    let withdrawals = [];
-    let openingsTotals = null;
-
-    try {
-      withdrawals = getWithdrawalsSummarySinceStmt.all(fromDateTime);
-    } catch (e) {
-      console.warn('Advertencia: no se pudo obtener el resumen de retiros de caja:', e.message);
-    }
-
-    try {
-      openingsTotals = getOpeningsTotalsSinceStmt.get(fromDateTime);
-    } catch (e) {
-      console.warn('Advertencia: no se pudo obtener el resumen de aperturas de caja:', e.message);
-    }
-
-    const byMethod = {};
-
-    const ensureMethod = (metodo) => {
-      if (!byMethod[metodo]) {
-        byMethod[metodo] = {
-          metodo,
-          total_ves: 0,
-          total_usd: 0
-        };
-      }
-      return byMethod[metodo];
-    };
-
-    // 3) Sumamos aperturas de caja (saldo inicial desde el último cierre)
-    if (openingsTotals) {
-      const aperturaVes = Number(openingsTotals.total_opening_ves || 0);
-      const aperturaUsd = Number(openingsTotals.total_opening_usd || 0);
-
-      if (aperturaVes !== 0) {
-        const mVes = ensureMethod('VES_EFECTIVO');
-        mVes.total_ves += aperturaVes;
-      }
-      if (aperturaUsd !== 0) {
-        const mUsd = ensureMethod('USD_EFECTIVO');
-        mUsd.total_usd += aperturaUsd;
-      }
-    }
-
-    // 4) Sumamos cobros del período (ventas + abonos)
-    payments.forEach((row) => {
-      const m = ensureMethod(row.metodo);
-      m.total_ves += Number(row.total_ves || 0);
-      m.total_usd += Number(row.total_usd || 0);
-    });
-
-    // 5) Restamos retiros de caja del período
-    withdrawals.forEach((row) => {
-      const m = ensureMethod(row.metodo);
-      m.total_ves -= Number(row.total_ves || 0);
-      m.total_usd -= Number(row.total_usd || 0);
-    });
-
-    const summary = Object.values(byMethod);
-    res.json(summary);
+    res.json(buildPaymentSummary(lastClosureDate()));
   } catch (error) {
     console.error('Error al obtener resumen de pagos:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -1637,8 +1608,7 @@ const getTodayPaymentSummary = (req, res) => {
 // ---------- PDF Cierre Z ----------
 
 const printCierreZ = (req, res) => {
-  const { summaryData, notes, totals } = req.body;
-
+  const { notes, totals: providedTotals } = req.body || {};
   try {
     const settings = loadSettings();
     const logoFullPath = settings.logoPath
@@ -1648,84 +1618,39 @@ const printCierreZ = (req, res) => {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
-    // 1) Determinar desde cuándo buscar (último cierre)
-    let fromDateTime = '1970-01-01 00:00:00';
-    try {
-      const row = getLastClosureStmt.get();
-      if (row && row.last_cierre) {
-        fromDateTime = row.last_cierre;
-      }
-    } catch (e) {
-      console.warn('Advertencia: no se pudo obtener el último cierre de caja:', e.message);
+    // El snapshot del sistema se recalcula en servidor antes de registrar el cierre.
+    const fromDateTime = lastClosureDate();
+    const summaryData = buildPaymentSummary(fromDateTime);
+    const openings = getOpeningsDetailSinceStmt.all(fromDateTime);
+    const withdrawals = getWithdrawalsDetailSinceStmt.all(fromDateTime);
+    const sistemaVes = Number(summaryData.reduce((sum, row) => sum + Number(row.total_ves || 0), 0).toFixed(2));
+    const sistemaUsd = Number(summaryData.reduce((sum, row) => sum + Number(row.total_usd || 0), 0).toFixed(4));
+    const manualVes = Number(providedTotals && providedTotals.manualVes);
+    const manualUsd = Number(providedTotals && providedTotals.manualUsd);
+    if (!Number.isFinite(manualVes) || manualVes < 0 || !Number.isFinite(manualUsd) || manualUsd < 0) {
+      return res.status(400).json({ error: 'Los conteos manuales del cierre son inválidos.' });
     }
-
-    // 🔹 Registrar un nuevo Cierre Z en el historial "simple" (tabla cierres_caja)
-    try {
+    const diffVes = Number((manualVes - sistemaVes).toFixed(2));
+    const diffUsd = Number((manualUsd - sistemaUsd).toFixed(4));
+    const totals = { sistemaVes, sistemaUsd, manualVes, manualUsd, diferenciaVes: diffVes, diferenciaUsd: diffUsd };
+    const safeNotes = notes ? String(notes).trim().slice(0, 1000) : null;
+    const payload = { summaryData, totals, openings, withdrawals, fromDateTime };
+    const closeTransaction = db.transaction(() => {
       insertClosureStmt.run();
-      console.log('Cierre de caja registrado en cierres_caja.');
-    } catch (e) {
-      console.error('Error registrando cierre de caja (cierres_caja):', e.message);
-    }
-
-    // Aperturas de caja del período
-    let openings = [];
-    try {
-      openings = getOpeningsDetailSinceStmt.all(fromDateTime);
-    } catch (e) {
-      console.warn('No se pudieron cargar las aperturas para el Cierre Z:', e.message);
-    }
-
-    // Retiros del período
-    let withdrawals = [];
-    try {
-      withdrawals = getWithdrawalsDetailSinceStmt.all(fromDateTime);
-    } catch (e) {
-      console.warn('No se pudieron cargar los retiros para el Cierre Z:', e.message);
-    }
-
-    // 🔹 Guardar snapshot detallado en tabla cierres_z (para historial / reimpresión)
-    try {
-      const sistemaVes = Number(totals && totals.sistemaVes !== undefined ? totals.sistemaVes : 0);
-      const sistemaUsd = Number(totals && totals.sistemaUsd !== undefined ? totals.sistemaUsd : 0);
-      const manualVes = Number(totals && totals.manualVes !== undefined ? totals.manualVes : 0);
-      const manualUsd = Number(totals && totals.manualUsd !== undefined ? totals.manualUsd : 0);
-
-      const diffVes =
-        Number(
-          totals && totals.diferenciaVes !== undefined
-            ? totals.diferenciaVes
-            : manualVes - sistemaVes
-        ) || 0;
-
-      const diffUsd =
-        Number(
-          totals && totals.diferenciaUsd !== undefined
-            ? totals.diferenciaUsd
-            : manualUsd - sistemaUsd
-        ) || 0;
-
-      const payload = {
-        summaryData: summaryData || [],
-        totals: totals || {},
-        openings,
-        withdrawals
-      };
-
-      insertCierreZHistoryStmt.run({
+      const historyInfo = insertCierreZHistoryStmt.run({
         total_sistema_ves: sistemaVes,
         total_sistema_usd: sistemaUsd,
         total_manual_ves: manualVes,
         total_manual_usd: manualUsd,
         diferencia_ves: diffVes,
         diferencia_usd: diffUsd,
-        notes: notes ? String(notes) : null,
+        notes: safeNotes,
         raw_json: JSON.stringify(payload)
       });
-
-      console.log('Cierre Z registrado en tabla cierres_z.');
-    } catch (e) {
-      console.error('Error registrando historial de cierre Z (cierres_z):', e.message);
-    }
+      return historyInfo.lastInsertRowid;
+    });
+    const closureId = closeTransaction();
+    console.log(`Cierre Z #${closureId} registrado atómicamente antes de generar PDF.`);
 
     const doc = new PDFDocument({ margin: 50 });
     const filename = `cierre - z - ${todayStr}.pdf`;
@@ -1820,10 +1745,10 @@ const printCierreZ = (req, res) => {
     doc.text(String(totals.sistemaVes ?? ''), col2, rowY, { width: 100, align: 'right' });
     doc.text(String(totals.manualVes ?? ''), col3, rowY, { width: 100, align: 'right' });
 
-    const diffVes = totals.diferenciaVes ?? 0;
-    const diffVesStr = typeof diffVes === 'number' ? diffVes.toFixed(2) : String(diffVes);
+    const diffVesPdf = totals.diferenciaVes ?? 0;
+    const diffVesStr = typeof diffVesPdf === 'number' ? diffVesPdf.toFixed(2) : String(diffVesPdf);
 
-    if (diffVes !== 0 && diffVesStr !== '0.00') doc.fillColor('red');
+    if (diffVesPdf !== 0 && diffVesStr !== '0.00') doc.fillColor('red');
     doc.text(diffVesStr, col4, rowY, { width: 100, align: 'right' });
     doc.fillColor('black');
     rowY += 20;
@@ -1833,18 +1758,18 @@ const printCierreZ = (req, res) => {
     doc.text(String(totals.sistemaUsd ?? ''), col2, rowY, { width: 100, align: 'right' });
     doc.text(String(totals.manualUsd ?? ''), col3, rowY, { width: 100, align: 'right' });
 
-    const diffUsd = totals.diferenciaUsd ?? 0;
-    const diffUsdStr = typeof diffUsd === 'number' ? diffUsd.toFixed(2) : String(diffUsd);
+    const diffUsdPdf = totals.diferenciaUsd ?? 0;
+    const diffUsdStr = typeof diffUsdPdf === 'number' ? diffUsdPdf.toFixed(2) : String(diffUsdPdf);
 
-    if (diffUsd !== 0 && diffUsdStr !== '0.00') doc.fillColor('red');
+    if (diffUsdPdf !== 0 && diffUsdStr !== '0.00') doc.fillColor('red');
     doc.text(diffUsdStr, col4, rowY, { width: 100, align: 'right' });
     doc.fillColor('black');
     rowY += 30;
 
-    if (notes) {
+    if (safeNotes) {
       doc.fontSize(14).font('Helvetica-Bold').text('Notas / Justificación');
       doc.moveDown(0.5);
-      doc.fontSize(11).font('Helvetica').text(String(notes));
+      doc.fontSize(11).font('Helvetica').text(safeNotes);
     }
 
     // ---------- Aperturas de Caja del Día (vista histórica del día completo) ----------

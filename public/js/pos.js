@@ -2379,47 +2379,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const bcvRate = (currentRates && currentRates.BCV > 0) ? currentRates.BCV : 1;
     const totalUsd = totalAPagarVes / bcvRate;
 
+    const randomPart = new Uint32Array(4);
+    window.crypto.getRandomValues(randomPart);
+    const saleRequestId = `sale-${Date.now()}-${Array.from(randomPart, n => n.toString(16)).join('')}`;
     const saleData = {
-      cart: cart.map(item => {
-        const unidadesBase = parseFloat(item.unidadesBase || 1) || 1;
-
-        if (item.tipo_venta === 'PESO' || item.tipo_venta === 'LITRO' || item.tipo_venta === 'METRO') {
-          return {
-            id: item.id,
-            quantity: item.quantity,
-            priceVes: item.priceVes,
-            name: item.name,
-            exento_iva: item.exento_iva,
-            costVes: item.costVes
-          };
-        }
-
-        // Si NO es una presentación, enviamos la cantidad neta (1 unidad = 1 unidad)
-        if (!item.presentationId) {
-          return {
-            id: item.id,
-            quantity: item.quantity,
-            priceVes: item.priceVes,
-            name: item.name,
-            exento_iva: item.exento_iva,
-            costVes: item.costVes
-          };
-        }
-
-        // Si es una presentación, calculamos la cantidad base (ej. 2 cajas de 12 = 24 unidades base)
-        // Esto ahora funciona correctamente incluso para presentaciones de menos de 1 unidad base (ej. 0.5)
-        const baseQuantity = item.quantity * unidadesBase;
-        const unitPriceVes = item.priceVes / unidadesBase;
-
-        return {
-          id: item.id,
-          quantity: baseQuantity,
-          priceVes: unitPriceVes,
-          name: item.name,
-          exento_iva: item.exento_iva,
-          costVes: (item.costVes || 0) / unidadesBase
-        };
-      }),
+      requestId: saleRequestId,
+      cart: cart.map(item => ({
+        id: item.id,
+        quantity: item.quantity,
+        priceVes: item.priceVes,
+        name: item.name,
+        exento_iva: item.exento_iva,
+        costVes: item.costVes,
+        presentationId: item.presentationId || null,
+      })),
       payments,
       totalVes: totalAPagarVes, // Enviamos el total redondeado como el "total esperado"
       rawTotalVes: rawTotalVes, // Enviamos el total original por si acaso
@@ -2432,7 +2405,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const response = await fetch('/api/sales', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': saleRequestId,
+        },
         body: JSON.stringify(saleData),
       });
 

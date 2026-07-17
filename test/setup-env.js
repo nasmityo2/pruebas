@@ -16,9 +16,16 @@ if (process.env.STOKKO_TEST_APPDATA_PID !== String(process.pid)) {
   process.env.PROGRAMDATA = path.join(testAppData, 'programdata');
   const dataDir = path.join(testAppData, 'Stokko_Data');
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(dataDir, 'mi-tienda.db'),
-    Buffer.concat([Buffer.from('SQLite format 3\0', 'utf8'), Buffer.alloc(128)]),
-  );
-  process.once('exit', () => fs.rmSync(testAppData, { recursive: true, force: true }));
+  const TestDatabase = require('better-sqlite3');
+  const testDb = new TestDatabase(path.join(dataDir, 'mi-tienda.db'));
+  testDb.exec('CREATE TABLE IF NOT EXISTS __test_bootstrap (id INTEGER PRIMARY KEY)');
+  testDb.close();
+  process.once('exit', () => {
+    try {
+      const databasePath = require.resolve('../src/database');
+      const loadedDatabase = require.cache[databasePath];
+      if (loadedDatabase) loadedDatabase.exports.closeDatabase();
+    } catch (_) { /* noop */ }
+    try { fs.rmSync(testAppData, { recursive: true, force: true }); } catch (_) { /* noop */ }
+  });
 }
