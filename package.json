@@ -19,6 +19,9 @@
     "build:32": "npm run build:css:prod && npm run make:32",
     "dev": "nodemon server.js",
     "test": "node --experimental-sqlite --test",
+    "test:smoke:backend": "node scripts/smoke-backend.js",
+    "test:smoke:electron": "node scripts/smoke-electron.js",
+    "test:smoke": "npm run test:smoke:backend && npm run test:smoke:electron",
     "clean:dev": "node scripts/clean-dev.js",
     "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch",
     "build:css:prod": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --minify"
@@ -27,7 +30,6 @@
     "@fastify/cors": "^8.3.0",
     "@fastify/multipart": "^7.7.3",
     "@fastify/static": "^6.10.2",
-    "@thesusheer/electron-printer": "^2.0.4",
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",

@@ -1,0 +1,32 @@
+STOKKO BASELINE — 2026-07-17
+
+Command:
+git status --porcelain=v1 --branch
+
+Result:
+## feat/stokko-complete-hardening
+M  public/activacion.html
+?? .gitattributes
+?? ANALISIS-AUDITORIA.md
+?? PLAN.md
+?? PROMPT-MAESTRO-CURSOR.md
+?? bodegapp.zip
+?? entrega-stokko.zip
+
+The activation page modification predates this session and was preserved.
+The ZIP files are quarantined inputs and must not be committed or shipped.
+
+Baseline commit:
+db09f04bdfef703e7df7360ab84d0f5678894719
+
+Tag:
+pre-stokko-audit
+
+External backup:
+D:\bodegapp-backups\bodegapp-pre-stokko-20260717T0353.zip
+Size: 196098806 bytes
+SHA-256: dcd31ff27901819b6ea1aaedca539bffcb2d737c76b899bad407b253700911c4
+
+Archive verification:
+tar.exe -tf ... > NUL
+Exit code: 0

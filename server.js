@@ -31,6 +31,7 @@ Module.prototype.require = function (id) {
 const { initializeDB } = require('./src/database');
 const { getDataBasePath } = require('./src/utils/settings');
 const { startScheduler } = require('./src/services/bcvUpdater');
+let startupLicenseTimer = null;
 
 // ----- PREPARAR CARPETA uploads -----
 const uploadsBasePath = path.join(getDataBasePath(), 'uploads');
@@ -70,7 +71,7 @@ try {
   
   // Verificación de licencia y actualizaciones en el arranque
   const { checkOnlineAndActivate } = require('./controllers/license.controller');
-  setTimeout(() => {
+  startupLicenseTimer = setTimeout(() => {
     console.log('[STARTUP] Iniciando verificación de licencia y actualizaciones...');
     checkOnlineAndActivate().catch(err => console.error('[STARTUP] Error en verificación inicial:', err.message));
   }, 5000);
@@ -495,4 +496,17 @@ function start(port, printHandlers) {
   });
 }
 
+async function stop() {
+  try {
+    await fastify.close();
+  } finally {
+    if (startupLicenseTimer) clearTimeout(startupLicenseTimer);
+    startupLicenseTimer = null;
+    try { require('./src/services/bcvUpdater').stopScheduler(); } catch (_) { /* noop */ }
+    try { require('./src/utils/localBackup').stopBackupScheduler(); } catch (_) { /* noop */ }
+    try { require('./src/database').closeDatabase(); } catch (_) { /* noop */ }
+  }
+}
+
 module.exports.start = start;
+module.exports.stop = stop;

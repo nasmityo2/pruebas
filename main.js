@@ -131,48 +131,41 @@ try {
   let tray = null;
   let isQuitting = false;
 
-  // Intentamos cargar el módulo de impresión nativa
-  let printer = null;
-  try {
-    logError('Cargando @thesusheer/electron-printer...');
-    printer = require('@thesusheer/electron-printer');
-    logError('[PRINT] Módulo @thesusheer/electron-printer cargado correctamente.');
-  } catch (err) {
-    logError(`[PRINT] No se pudo cargar @thesusheer/electron-printer: ${err.message}`);
-    printer = null;
-  }
-
   // Configura los canales IPC relacionados con impresión y sistema
   function setupIpcHandlers() {
     try {
       // --- Reusable Print Functions ---
       async function getPrinters() {
-        if (!printer) return { ok: false, error: 'Módulo de impresora no disponible.' };
         try {
-          return { ok: true, printers: printer.getPrinters() };
+          if (!win || win.isDestroyed()) {
+            return { ok: false, error: 'La ventana principal no está disponible.' };
+          }
+          const printers = await win.webContents.getPrintersAsync();
+          return { ok: true, printers };
         } catch (error) {
           return { ok: false, error: error.message };
         }
       }
 
       async function printText(options) {
-        if (!printer) return { ok: false, error: 'Módulo de impresora no disponible.' };
-        const { printerName, text, type, binary } = options || {};
-        let dataToPrint = binary ? Buffer.from(binary) : text;
-        try {
-          const jobId = await new Promise((resolve, reject) => {
-            printer.printDirect({
-              data: dataToPrint,
-              printer: printerName || undefined, 
-              type: type || 'RAW',
-              success: resolve,
-              error: reject
-            });
-          });
-          return { ok: true, jobId };
-        } catch (error) {
-          return { ok: false, error: error.message };
+        const { printerName, text, binary } = options || {};
+        if (binary !== undefined) {
+          return { ok: false, error: 'La impresión binaria RAW no está permitida.' };
         }
+        if (typeof text !== 'string' || text.length === 0 || text.length > 1024 * 1024) {
+          return { ok: false, error: 'El texto de impresión es inválido o demasiado grande.' };
+        }
+        const escaped = text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+        return printHTML({
+          printerName,
+          pageSize: 'A4',
+          html: `<!doctype html><meta charset="utf-8"><style>body{margin:0;font-family:monospace;white-space:pre-wrap}</style><body>${escaped}</body>`,
+        });
       }
 
       async function printHTML(options) {
@@ -407,9 +400,32 @@ try {
       });
   }
 
+  async function runElectronShellSmoke() {
+    if (app.isPackaged) {
+      throw new Error('El smoke aislado del shell Electron solo puede ejecutarse en desarrollo.');
+    }
+    const smokeWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        devTools: false,
+      },
+    });
+    await smokeWindow.loadURL('data:text/html;charset=utf-8,%3Ctitle%3EStokko%20Smoke%3C%2Ftitle%3E');
+    originalLog('[STOKKO_ELECTRON_SMOKE_OK]');
+    smokeWindow.destroy();
+    app.quit();
+  }
+
   app.whenReady().then(async () => {
     logError('App ready. Iniciando migraciones...');
     try {
+      if (process.env.STOKKO_ELECTRON_SMOKE === '1') {
+        await runElectronShellSmoke();
+        return;
+      }
       // Fase 11.8: self-check de integridad SOLO en el build empaquetado (producción).
       // Si algún archivo crítico fue manipulado o falta la firma válida, se bloquea.
       if (app.isPackaged) {
@@ -443,7 +459,16 @@ try {
   app.on('before-quit', () => {
     isQuitting = true;
     // A.6: detener timers de fondo para evitar fugas al cerrar.
-    try { require('./src/services/bcvUpdater').stopScheduler(); } catch (_) { /* noop */ }
+    try {
+      const bcvPath = require.resolve('./src/services/bcvUpdater');
+      const loadedBcv = require.cache[bcvPath];
+      if (loadedBcv) loadedBcv.exports.stopScheduler();
+    } catch (_) { /* noop */ }
+    try {
+      const backupPath = require.resolve('./src/utils/localBackup');
+      const loadedBackup = require.cache[backupPath];
+      if (loadedBackup) loadedBackup.exports.stopBackupScheduler();
+    } catch (_) { /* noop */ }
   });
 
   app.on('window-all-closed', () => {

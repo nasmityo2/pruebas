@@ -142,8 +142,12 @@ function markBackupDone() {
   saveBackupConfig({ lastBackupAt: new Date().toISOString() });
 }
 
+let backupStartupTimer = null;
+let backupInterval = null;
+
 // Programador: respalda al iniciar (si toca) y cada intervalo.
 function startBackupScheduler() {
+  stopBackupScheduler();
   const runIfDue = () => {
     try {
       const cfg = getBackupConfig();
@@ -159,8 +163,15 @@ function startBackupScheduler() {
       console.error('[BACKUP] Error en respaldo automático:', e.message);
     }
   };
-  setTimeout(runIfDue, 15000); // al iniciar (con margen)
-  setInterval(runIfDue, 60 * 60 * 1000); // revisa cada hora
+  backupStartupTimer = setTimeout(runIfDue, 15000); // al iniciar (con margen)
+  backupInterval = setInterval(runIfDue, 60 * 60 * 1000); // revisa cada hora
+}
+
+function stopBackupScheduler() {
+  if (backupStartupTimer) clearTimeout(backupStartupTimer);
+  if (backupInterval) clearInterval(backupInterval);
+  backupStartupTimer = null;
+  backupInterval = null;
 }
 
 // ---- Cifrado de credenciales de nube en reposo ----
@@ -188,6 +199,7 @@ module.exports = {
   setBackupConfig,
   markBackupDone,
   startBackupScheduler,
+  stopBackupScheduler,
   encryptSecretAtRest,
   decryptSecretAtRest,
   getBackupKey,
