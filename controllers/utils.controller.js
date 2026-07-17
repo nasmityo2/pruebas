@@ -94,7 +94,7 @@ const downloadUpdate = async (req, res) => {
     
     // Ruta temporal para el instalador
     const tempDir = os.tmpdir();
-    const fileName = `BodegAppUpdate_${Date.now()}.exe`;
+    const fileName = `StokkoUpdate_${Date.now()}.exe`;
     const filePath = path.join(tempDir, fileName);
     global.downloadedInstallerPath = filePath;
 
@@ -212,8 +212,8 @@ const configureFirewall = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Puerto inválido.' });
     }
 
-    const scriptPath = path.join(os.tmpdir(), `bodegapp-firewall-${port}.bat`);
-    const scriptContent = `@echo off\r\n:: Check for administrative privileges\r\nnet session >nul 2>&1\r\nif %errorLevel% == 0 (\r\n    echo [INFO] Ejecutando como administrador...\r\n) else (\r\n    echo [ERROR] Por favor, ejecuta este archivo como Administrador.\r\n    pause\r\n    exit /b\r\n)\r\n\r\necho [INFO] Abriendo el puerto ${port} para BodegApp (solo red local)...\r\npowershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'BodegApp - Servidor POS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port} -Profile Private -Description 'Permite conexion en red local para BodegApp' -ErrorAction SilentlyContinue"\r\n\r\necho [SUCCESS] Regla de firewall creada para el puerto ${port}.\r\necho Ya puedes cerrar esta ventana.\r\npause\r\n`;
+    const scriptPath = path.join(os.tmpdir(), `stokko-firewall-${port}.bat`);
+    const scriptContent = `@echo off\r\n:: Check for administrative privileges\r\nnet session >nul 2>&1\r\nif %errorLevel% == 0 (\r\n    echo [INFO] Ejecutando como administrador...\r\n) else (\r\n    echo [ERROR] Por favor, ejecuta este archivo como Administrador.\r\n    pause\r\n    exit /b\r\n)\r\n\r\necho [INFO] Abriendo el puerto ${port} para Stokko (solo red local)...\r\npowershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'Stokko - Servidor POS' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'Stokko - Servidor POS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port} -Profile Private -Description 'Permite conexion en red local para Stokko' -ErrorAction SilentlyContinue"\r\n\r\necho [SUCCESS] Regla de firewall creada para el puerto ${port}.\r\necho Ya puedes cerrar esta ventana.\r\npause\r\n`;
     fs.writeFileSync(scriptPath, scriptContent, 'utf-8');
 
     const runCommand = `Start-Process -FilePath "${scriptPath}" -Verb RunAs`;
@@ -250,8 +250,8 @@ const setLanMode = (req, res) => {
     lanEnabled: enabled,
     requiresRestart: true,
     message: enabled
-      ? 'Modo LAN activado. Reinicia BodegApp para aplicar. Recuerda escanear el QR desde el móvil.'
-      : 'Modo LAN desactivado. Reinicia BodegApp para dejar de escuchar en la red.',
+      ? 'Modo LAN activado. Reinicia Stokko para aplicar. Recuerda escanear el QR desde el móvil.'
+      : 'Modo LAN desactivado. Reinicia Stokko para dejar de escuchar en la red.',
   });
 };
 

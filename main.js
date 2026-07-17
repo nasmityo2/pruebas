@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { getStokkoDataPath } = require('./src/utils/dataPaths');
 
 // Forzar el directorio de trabajo al del ejecutable (evita fallos de acceso directo)
 try {
@@ -9,12 +10,7 @@ try {
 }
 
 // Directorios de log (Inmediato para depurar)
-const appName = 'BodegApp_Data';
-const appData = process.env.APPDATA || 
-               (process.platform === 'win32' ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming') : 
-               (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : '/var/local'));
-
-const logDir = path.join(appData, appName);
+const logDir = getStokkoDataPath();
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 const logPath = path.join(logDir, 'startup_error.log');
 
@@ -23,6 +19,9 @@ try {
 } catch (e) {}
 
 const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray } = require('electron');
+const APP_NAME = 'Stokko';
+const APP_USER_MODEL_ID = 'com.codigocreativo.stokko';
+app.setName(APP_NAME);
 
 // Fase 11.9: en el build empaquetado marcamos entorno de producción. server.js (cargado
 // más adelante en el mismo proceso) usa NODE_ENV para NO filtrar detalles de error al cliente.
@@ -102,7 +101,7 @@ process.on('uncaughtException', (err) => {
   
   try {
     if (app && app.isReady()) {
-      dialog.showErrorBox('Error de Inicio - BodegApp', `Lo sentimos, la aplicación no pudo iniciar.\n\nError: ${err.message}\n\nRevisa el archivo startup_error.log en AppData para más detalles.`);
+      dialog.showErrorBox('Error de Inicio - Stokko', `Lo sentimos, la aplicación no pudo iniciar.\n\nError: ${err.message}\n\nRevisa el archivo startup_error.log en AppData para más detalles.`);
     }
     if (app) app.quit();
   } catch (e) {
@@ -124,7 +123,7 @@ process.on('unhandledRejection', (reason) => {
 try {
   logError('Cargando dependencias...');
   const portfinder = require('portfinder');
-  const { migrateFromProgramData } = require('./src/utils/migration');
+  const { migrateToStokko } = require('./src/utils/migration');
   logError('Dependencias básicas cargadas.');
 
   let win;
@@ -285,7 +284,7 @@ try {
       tray = new Tray(iconPath);
       const contextMenu = Menu.buildFromTemplate([
         { 
-          label: 'Abrir BodegApp', 
+          label: 'Abrir Stokko',
           click: () => {
             if (win) win.show();
           } 
@@ -299,7 +298,7 @@ try {
           } 
         }
       ]);
-      tray.setToolTip('BodegApp - Sistema de Gestión');
+      tray.setToolTip('Stokko - Sistema de Gestión');
       tray.setContextMenu(contextMenu);
       
       tray.on('double-click', () => {
@@ -422,6 +421,7 @@ try {
   app.whenReady().then(async () => {
     logError('App ready. Iniciando migraciones...');
     try {
+      if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
       if (process.env.STOKKO_ELECTRON_SMOKE === '1') {
         await runElectronShellSmoke();
         return;
@@ -435,24 +435,26 @@ try {
           const result = integrity.runSelfCheck({ baseDir: __dirname, publicKey: getPublicKey() });
           if (!result.ok) {
             logError(`[INTEGRITY] Self-check FALLÓ: ${result.reason} ${JSON.stringify(result.mismatches || [])}`);
-            dialog.showErrorBox('BodegApp - Integridad', 'Se detectó una modificación no autorizada de la aplicación. Reinstala desde el instalador original.');
+            dialog.showErrorBox('Stokko - Integridad', 'Se detectó una modificación no autorizada de la aplicación. Reinstala desde el instalador original.');
             app.quit();
             return;
           }
           logError('[INTEGRITY] Self-check OK.');
         } catch (e) {
           logError(`[INTEGRITY] Error en self-check: ${e.message}`);
-          dialog.showErrorBox('BodegApp - Integridad', 'No se pudo verificar la integridad de la aplicación.');
+          dialog.showErrorBox('Stokko - Integridad', 'No se pudo verificar la integridad de la aplicación.');
           app.quit();
           return;
         }
       }
-      await migrateFromProgramData();
-      logError('Migraciones completadas.');
+      const migrationResult = migrateToStokko();
+      logError(`Migración de datos Stokko: ${migrationResult.status}.`);
       setupIpcHandlers();
       startServer();
     } catch (err) {
       logError(`Error en app.ready: ${err.message}\n${err.stack}`);
+      dialog.showErrorBox('Stokko - Migración', 'No se pudo migrar o validar los datos. Stokko se cerrará sin modificar el origen.');
+      app.quit();
     }
   });
 

@@ -179,7 +179,7 @@ function generateLicenseKey() {
         for (let i = 0; i < 5; i++) s += KEY_ALPHABET[bytes[i] % KEY_ALPHABET.length];
         groups.push(s);
     }
-    return 'BGA-' + groups.join('-');
+    return 'STK-' + groups.join('-');
 }
 
 // ------------------------------------------------------------------

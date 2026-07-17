@@ -44,7 +44,7 @@ test('activación vincula HWID y devuelve token firmado válido', async () => {
   const created = await api(server.baseUrl, '/api/admin/licenses', { method: 'POST', token, body: { plan: 'PRO', dias: 365 } });
   assert.strictEqual(created.status, 200);
   const key = created.data.licenses[0].key;
-  assert.match(key, /^BGA-/);
+  assert.match(key, /^STK-/);
 
   const hwid = 'HWID-TEST-' + crypto.randomBytes(6).toString('hex');
   const act = await api(server.baseUrl, '/api/activate', { method: 'POST', body: { key, hwid, systemName: 'PC Prueba' } });
@@ -101,7 +101,7 @@ test('licencia expirada no activa (403 expirada)', async () => {
 });
 
 test('clave inexistente es rechazada (404 desconocida)', async () => {
-  const act = await api(server.baseUrl, '/api/activate', { method: 'POST', body: { key: 'BGA-XXXXX-XXXXX-XXXXX-XXXXX', hwid: 'HWID-NA-000000' } });
+  const act = await api(server.baseUrl, '/api/activate', { method: 'POST', body: { key: 'STK-XXXXX-XXXXX-XXXXX-XXXXX', hwid: 'HWID-NA-000000' } });
   assert.strictEqual(act.status, 404);
 });
 

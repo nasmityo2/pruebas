@@ -220,7 +220,7 @@ function showPromoModal() {
               Promoción Especial
             </p>
             <p class="text-xl font-extrabold text-slate-800 dark:text-white leading-tight">
-              6 Meses de BodegApp Online
+              6 Meses de Stokko Online
             </p>
             <p class="text-2xl font-black text-green-600 dark:text-green-400 mt-1">
               por tan solo 20$ <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">(a tasa BCV)</span>
@@ -229,7 +229,7 @@ function showPromoModal() {
           
           <!-- Actions -->
           <div class="flex flex-col gap-3">
-            <a href="https://wa.me/584167713802?text=Hola!%20Quiero%20adquirir%20la%20promoci%C3%B3n%20especial%20de%206%20meses%20de%20BodegApp%20Online%20por%2020%20d%C3%B3lares." 
+            <a href="https://wa.me/584167713802?text=Hola!%20Quiero%20adquirir%20la%20promoci%C3%B3n%20especial%20de%206%20meses%20de%20Stokko%20Online%20por%2020%20d%C3%B3lares."
                target="_blank" 
                id="btn-promo-whatsapp"
                class="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold rounded-2xl shadow-lg shadow-green-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]">
@@ -301,7 +301,7 @@ async function loadAndApplyBusinessSettings() {
     const settings = await response.json();
     window.appSettings = settings; // Expose settings to child iframes like pos.html
     
-    const businessName = settings.businessName || 'BodegApp';
+    const businessName = settings.businessName || 'Stokko';
     const nameElements = document.querySelectorAll('.brand-name');
     nameElements.forEach((el) => {
       el.textContent = businessName;
@@ -364,7 +364,7 @@ async function loadAndApplyBusinessSettings() {
   } catch (error) {
     console.error('Error al aplicar la config. del negocio:', error);
     document.querySelectorAll('.brand-name').forEach((el) => {
-      el.textContent = 'BodegApp';
+      el.textContent = 'Stokko';
       el.style.fontSize = '';
     });
     document.querySelectorAll('.brand-logo').forEach((el) => {

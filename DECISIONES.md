@@ -55,3 +55,27 @@
 - Alternativas: versionar una privada de fixture; reutilizar la privada recibida; omitir pruebas criptográficas.
 - Razón: conserva pruebas reales de firma/verificación sin introducir una clave privada, aunque sea de test, en el repositorio o artefacto.
 - Riesgo residual: los tests validan el protocolo criptográfico, no la custodia HSM de producción.
+
+## D-008 — Directorio de datos y migración
+
+- Fecha: 2026-07-17
+- Decisión: usar `%APPDATA%\Stokko_Data`; fusionar fuentes legacy con precedencia del perfil de usuario, conservar el origen y crear backup verificado antes del swap.
+- Alternativas: reutilizar el directorio anterior; renombrar destructivamente; copiar sin rollback.
+- Razón: separa identidad nueva sin perder DB, uploads, preferencias, licencia ni backups, y permite revertir incluso después del swap.
+- Riesgo residual: conservar origen, backup y rollback usa espacio adicional; la limpieza posterior debe ser una decisión explícita del usuario.
+
+## D-009 — Identidad visual Stokko
+
+- Fecha: 2026-07-17
+- Decisión: monograma S basado en cajas, blanco sobre gradiente índigo/teal, generado desde una fuente 1024×1024 y derivado reproduciblemente.
+- Alternativas: conservar iconos anteriores; usar solo texto; recursos no reproducibles.
+- Razón: es reconocible a 16 px, coherente con inventario/POS y produce favicon, ICO multiresolución, splash e instalador desde una fuente única.
+- Riesgo residual: identidad de marca y registro comercial no se validan técnicamente en este repositorio.
+
+## D-010 — WiX portable hermético
+
+- Fecha: 2026-07-17
+- Decisión: usar WiX 3.14.1 portable fuera del repositorio y añadirlo solo al PATH del proceso de build.
+- Alternativas: instalación Chocolatey con elevación; depender del PATH global; cambiar de maker.
+- Razón: `electron-wix-msi` exige `candle`/`light` v3 y la instalación global falló sin privilegios. El archivo oficial portable hace el build repetible sin modificar configuración del sistema.
+- Riesgo residual: el pipeline debe descargar/verificar el toolset en una caché controlada; el release final registrará su hash.

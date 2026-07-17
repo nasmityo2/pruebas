@@ -1,12 +1,15 @@
-const CACHE_NAME = 'bodegapp-license-v3-network-first';
+const CACHE_NAME = 'stokko-license-v4-network-first';
 const ASSETS = [
     './img/icon.ico',
-    './css/style.css',
-    'https://fonts.googleapis.com/icon?family=Material+Icons+Round'
+    './css/style.css'
 ];
 
 self.addEventListener('install', (e) => {
-    self.skipWaiting();
+    e.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => cache.addAll(ASSETS))
+            .then(() => self.skipWaiting())
+    );
 });
 
 self.addEventListener('activate', (e) => {
@@ -14,7 +17,7 @@ self.addEventListener('activate', (e) => {
         Promise.all([
             self.clients.claim(),
             caches.keys().then((keys) => {
-                return Promise.all(keys.map((k) => caches.delete(k)));
+                return Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
             })
         ])
     );
@@ -33,8 +36,21 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // For CSS/Images -> Network First, Fallback to Cache
+    if (url.origin !== self.location.origin) {
+        e.respondWith(fetch(e.request));
+        return;
+    }
+
+    // For local CSS/Images -> Network First, Fallback to the current branded cache
     e.respondWith(
-        fetch(e.request).catch(() => caches.match(e.request))
+        fetch(e.request)
+            .then((response) => {
+                if (response.ok) {
+                    const copy = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy));
+                }
+                return response;
+            })
+            .catch(() => caches.match(e.request))
     );
 });

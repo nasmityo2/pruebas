@@ -1,6 +1,6 @@
 {
-  "name": "bodegapp",
-  "productName": "BodegApp",
+  "name": "stokko",
+  "productName": "Stokko",
   "version": "1.26.10617",
   "isModified": false,
   "author": "Codigo Creativo",
@@ -8,7 +8,7 @@
   "main": "main.js",
   "scripts": {
     "start": "npm run build:css:prod && electron-forge start",
-    "start:nolic": "npm run build:css:prod && cross-env BODEGAPP_DEV_NO_LICENSE=1 electron-forge start",
+    "start:unlicensed": "npm run build:css:prod && cross-env STOKKO_DEV_NO_LICENSE=1 electron-forge start",
     "check:secrets": "node scripts/check-no-secrets.js",
     "prepackage": "npm run check:secrets",
     "package": "electron-forge package",
@@ -23,7 +23,9 @@
     "test:smoke:electron": "node scripts/smoke-electron.js",
     "test:smoke": "npm run test:smoke:backend && npm run test:smoke:electron",
     "prepare": "simple-git-hooks",
-    "clean:dev": "node scripts/clean-dev.js",
+    "migrate:data": "node scripts/migrate-stokko-data.js",
+    "migrate:data:rollback": "node scripts/migrate-stokko-data.js --rollback",
+    "clean:dev": "node scripts/clean-stokko-dev.js",
     "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch",
     "build:css:prod": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --minify"
   },

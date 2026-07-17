@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!response.ok) throw new Error(data.error || 'No se pudo cambiar el modo LAN.');
           mostrarMensaje(lanStatus, data.message || 'Cambio aplicado. Reinicia la app.', 'info');
           if (typeof window.parent.showToast === 'function') {
-            window.parent.showToast('Modo LAN ' + (enabled ? 'activado' : 'desactivado') + '. Reinicia BodegApp.', 'info');
+            window.parent.showToast('Modo LAN ' + (enabled ? 'activado' : 'desactivado') + '. Reinicia Stokko.', 'info');
           }
         } catch (error) {
           toggleLan.checked = !enabled; // revertir

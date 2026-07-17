@@ -22,7 +22,7 @@ const hwid = licenseUtil.getHardwareId();
 const now = Math.floor(Date.now() / 1000);
 
 test('cliente valida token de licencia correcto (firma + HWID + no expirado)', () => {
-  const token = sign({ v: 1, typ: 'license', key: 'BGA-TEST', hwid, plan: 'PRO', iat: now, exp: now + 3600 });
+  const token = sign({ v: 1, typ: 'license', key: 'STK-TEST', hwid, plan: 'PRO', iat: now, exp: now + 3600 });
   const payload = licenseUtil.verifyToken(token, PUBLIC_KEY);
   assert.ok(payload, 'token válido');
   assert.strictEqual(payload.typ, 'license');

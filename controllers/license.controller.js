@@ -70,7 +70,7 @@ async function tryStartTrial() {
     try {
         const { data } = await axios.post(TRIAL_URL, {
             hwid,
-            systemName: settings.businessName || 'BodegApp',
+            systemName: settings.businessName || 'Stokko',
         }, { timeout: 4000 });
         if (data && data.ok && data.token) {
             saveLicenseCache({ key: null, token: data.token, plan: 'TRIAL' });
@@ -136,7 +136,7 @@ const activateLicense = async (req, res) => {
         const { data } = await axios.post(ACTIVATE_URL, {
             key,
             hwid,
-            systemName: settings.businessName || 'BodegApp',
+            systemName: settings.businessName || 'Stokko',
             clientPhone: settings.clientPhone,
             clientEmail: settings.clientEmail,
         }, { timeout: 6000 });

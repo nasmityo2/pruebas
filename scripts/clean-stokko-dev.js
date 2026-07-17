@@ -1,8 +1,8 @@
-// scripts/clean-dev.js
-// Elimina TODOS los datos generados por BodegApp en desarrollo, dejando
+// scripts/clean-stokko-dev.js
+// Elimina TODOS los datos generados por Stokko en desarrollo, dejando
 // la app como recién instalada (sin base de datos, sin licencia, sin cachés).
 //
-// Ejecutar:  node scripts/clean-dev.js       (desde npm: npm run clean:dev)
+// Ejecutar:  node scripts/clean-stokko-dev.js       (desde npm: npm run clean:dev)
 // Recuerda cerrar la app antes de ejecutar (si está abierta los archivos estarán bloqueados).
 
 const fs = require('fs');
@@ -67,27 +67,27 @@ function unlinkIfExists(file) {
 
 console.log('');
 console.log('===========================================');
-console.log('  BodegApp — Limpieza completa a estado cero');
+console.log('  Stokko — Limpieza completa a estado cero');
 console.log('===========================================');
 
 // ─── 1. Carpeta principal de datos (APPDATA) ───
 const appDataDir =
   process.env.APPDATA ||
   path.join(process.env.USERPROFILE, 'AppData', 'Roaming');
-const bodegappData = path.join(appDataDir, 'BodegApp_Data');
+const stokkoData = path.join(appDataDir, 'Stokko_Data');
 
-console.log('\n[1/4] Carpeta de datos — %APPDATA%\\BodegApp_Data');
-console.log(`      Ruta: ${bodegappData}`);
-rmdirRecursive(bodegappData);
+console.log('\n[1/4] Carpeta de datos — %APPDATA%\\Stokko_Data');
+console.log(`      Ruta: ${stokkoData}`);
+rmdirRecursive(stokkoData);
 
 // ─── 2. Archivos temporales del firewall ───
 const tmpDir = os.tmpdir();
-console.log(`\n[2/4] Archivos temporales — %TEMP%\\bodegapp-firewall-*.bat`);
+console.log(`\n[2/4] Archivos temporales — %TEMP%\\stokko-firewall-*.bat`);
 console.log(`      Ruta: ${tmpDir}`);
 try {
   const tmpFiles = fs.readdirSync(tmpDir);
   for (const f of tmpFiles) {
-    if (f.startsWith('bodegapp-firewall-') && f.endsWith('.bat')) {
+    if (f.startsWith('stokko-firewall-') && f.endsWith('.bat')) {
       unlinkIfExists(path.join(tmpDir, f));
     }
   }
@@ -101,8 +101,8 @@ const localAppData =
   process.env.LOCALAPPDATA ||
   path.join(process.env.USERPROFILE, 'AppData', 'Local');
 const electronCacheDirs = [
-  path.join(localAppData, 'BodegApp'),
-  path.join(localAppData, 'bodegapp'),
+  path.join(localAppData, 'Stokko'),
+  path.join(localAppData, 'stokko'),
   path.join(localAppData, 'electron-builder', 'Cache'),
 ];
 
@@ -149,7 +149,7 @@ if (errorCount > 0) {
   console.log('');
   console.log('  ⚠ Algunos archivos no se pudieron eliminar.');
   console.log('  Posibles causas:');
-  console.log('  • La app de BodegApp sigue abierta → ciérrala y vuelve a ejecutar');
+  console.log('  • Stokko sigue abierta → ciérrala y vuelve a ejecutar');
   console.log('  • El archivo está en uso por otro proceso');
   console.log('───────────────────────────────────────────');
 } else {

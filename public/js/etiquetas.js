@@ -1,6 +1,6 @@
 /**
  * ========================================================/**
- *  DISEÑADOR VISUAL DE ETIQUETAS – BodegApp
+ *  DISEÑADOR VISUAL DE ETIQUETAS – Stokko
  *  Drag & Drop · Resize · Font Control · Templates · Print
  * ========================================================
  */
@@ -12,6 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const fmt2 = n => toNum(n).toFixed(2);
   const escHtml = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const normalize = s => String(s || '').toLowerCase().trim();
+  const LEGACY_STORAGE_PREFIX = ['bodega', 'pp_'].join('');
+  const readStorage = key => {
+    const current = localStorage.getItem(key);
+    if (current !== null) return current;
+    const legacyKey = LEGACY_STORAGE_PREFIX + key.slice('stokko_'.length);
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy !== null) {
+      localStorage.setItem(key, legacy);
+      localStorage.removeItem(legacyKey);
+    }
+    return legacy;
+  };
 
   // ─── MM <-> PX conversion ────────────────────────
   // We use 3.7795275591 px per mm (96 DPI)
@@ -31,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let labelWidthMm = 66;
   let labelHeightMm = 35;
   let labelBgColor = '#ffffff';
-  let businessName = 'BodegApp';
+  let businessName = 'Stokko';
   let customText = '';
   let selectedElementId = null;
 
@@ -572,8 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   businessNameValue.addEventListener('input', () => {
-    businessName = businessNameValue.value || 'BodegApp';
-    localStorage.setItem('bodegapp_business_name', businessName);
+    businessName = businessNameValue.value || 'Stokko';
+    localStorage.setItem('stokko_business_name', businessName);
     renderCanvas();
   });
 
@@ -908,12 +920,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getSavedTemplates() {
     try {
-      return JSON.parse(localStorage.getItem('bodegapp_label_templates') || '[]');
+      return JSON.parse(readStorage('stokko_label_templates') || '[]');
     } catch { return []; }
   }
 
   function saveTemplates(list) {
-    localStorage.setItem('bodegapp_label_templates', JSON.stringify(list));
+    localStorage.setItem('stokko_label_templates', JSON.stringify(list));
   }
 
   function renderTemplatesList() {
@@ -1249,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Load business name ───────────────────────────
   async function loadBusinessName() {
-    const savedBN = localStorage.getItem('bodegapp_business_name');
+    const savedBN = readStorage('stokko_business_name');
     if (savedBN) {
       businessName = savedBN;
       businessNameValue.value = businessName;
@@ -1258,8 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const urls = [
       '/api/settings/general',
-      '/api/settings/business',
-      '/bodegapp_data/business-settings.json'
+      '/api/settings/business'
     ];
 
     for (const url of urls) {
@@ -1271,14 +1282,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (name) {
           businessName = String(name).trim();
           businessNameValue.value = businessName;
-          localStorage.setItem('bodegapp_business_name', businessName);
+          localStorage.setItem('stokko_business_name', businessName);
           renderCanvas();
           return;
         }
       } catch (_) { }
     }
 
-    businessName = 'BodegApp';
+    businessName = 'Stokko';
     businessNameValue.value = businessName;
   }
 
@@ -1301,13 +1312,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Auto-save current design ─────────────────────
   function autoSave() {
     try {
-      localStorage.setItem('bodegapp_label_autosave', JSON.stringify(getTemplateData()));
+      localStorage.setItem('stokko_label_autosave', JSON.stringify(getTemplateData()));
     } catch (e) { }
   }
 
   function autoLoad() {
     try {
-      const saved = localStorage.getItem('bodegapp_label_autosave');
+      const saved = readStorage('stokko_label_autosave');
       if (saved) {
         const data = JSON.parse(saved);
         loadTemplateData(data);

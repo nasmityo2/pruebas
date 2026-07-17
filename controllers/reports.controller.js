@@ -1205,7 +1205,7 @@ const getReportByDateRangePDF = async (req, res) => {
       }
     }
 
-    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'BodegApp', {
+    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'Stokko', {
       align: 'center'
     });
     doc.moveDown(1);
@@ -1746,7 +1746,7 @@ const printCierreZ = (req, res) => {
       }
     }
 
-    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'BodegApp', {
+    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'Stokko', {
       align: 'center'
     });
     doc.moveDown(1);
@@ -2396,7 +2396,7 @@ const printInventoryPdf = (req, res) => {
       }
     }
 
-    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'BodegApp', {
+    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'Stokko', {
       align: 'center'
     });
     doc.moveDown(1);
@@ -2531,7 +2531,7 @@ const printFiadosPdf = (req, res) => {
         doc.y += 30; // Si no hay logo, bajar un poco para el titulo
     }
 
-    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'BodegApp', {
+    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'Stokko', {
       align: 'center'
     });
     doc.moveDown(1);
@@ -2802,7 +2802,7 @@ const printCierreZById = (req, res) => {
       }
     }
 
-    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'BodegApp', {
+    doc.fontSize(20).font('Helvetica-Bold').text(settings.businessName || 'Stokko', {
       align: 'center'
     });
     doc.moveDown(1);

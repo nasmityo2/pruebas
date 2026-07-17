@@ -137,26 +137,26 @@ Crear y mantener:
 
 ## 2.1 Identidad técnica
 
-- [ ] Cambiar `name` a un identificador estable (`stokko`) y `productName` a `Stokko`.
-- [ ] Definir `app.setName('Stokko')`, AppUserModelID y metadatos de ejecutable/instalador.
-- [ ] Cambiar manufacturer/descripción, nombres de MSI/EXE/ZIP y accesos directos.
-- [ ] Renombrar variables `BODEGAPP_*` a `STOKKO_*`; mantener alias temporal solo si es necesario y eliminarlo antes del release.
-- [ ] Renombrar scripts, carpetas de ejemplo y documentación sin romper imports.
+- [x] Cambiar `name` a un identificador estable (`stokko`) y `productName` a `Stokko`.
+- [x] Definir `app.setName('Stokko')`, AppUserModelID y metadatos de ejecutable/instalador.
+- [x] Cambiar manufacturer/descripción, nombres de MSI/EXE/ZIP y accesos directos.
+- [x] Renombrar variables `BODEGAPP_*` a `STOKKO_*`; mantener alias temporal solo si es necesario y eliminarlo antes del release.
+- [x] Renombrar scripts, carpetas de ejemplo y documentación sin romper imports.
 
 ## 2.2 Datos y compatibilidad
 
-- [ ] Elegir directorio nuevo de datos `Stokko_Data`/`Stokko`.
-- [ ] Implementar migración idempotente desde `BodegApp_Data` con backup, lock y rollback.
-- [ ] No perder base de datos, uploads, preferencias, licencia válida ni backups.
-- [ ] Probar primera migración, segunda ejecución, origen ausente, origen corrupto y rollback.
+- [x] Elegir directorio nuevo de datos `Stokko_Data`/`Stokko`.
+- [x] Implementar migración idempotente desde `BodegApp_Data` con backup, lock y rollback.
+- [x] No perder base de datos, uploads, preferencias, licencia válida ni backups.
+- [x] Probar primera migración, segunda ejecución, origen ausente, origen corrupto y rollback.
 
 ## 2.3 UI y recursos
 
-- [ ] Sustituir todos los textos visibles, títulos, tooltips, tray, diálogos, errores, tickets, PDF, QR, panel admin y manifest.
-- [ ] Crear identidad Stokko coherente: logo, icono `.ico` multiresolución, favicon, splash y assets de instalador.
-- [ ] Eliminar nombres BodegApp en comentarios distribuidos, nombres de archivos, alt text y metadatos.
-- [ ] Cambiar cachés/service worker y versionarlos para no conservar branding viejo.
-- [ ] Ejecutar búsqueda case-insensitive final excluyendo solo historial de migración explícitamente justificado.
+- [x] Sustituir todos los textos visibles, títulos, tooltips, tray, diálogos, errores, tickets, PDF, QR, panel admin y manifest.
+- [x] Crear identidad Stokko coherente: logo, icono `.ico` multiresolución, favicon, splash y assets de instalador.
+- [x] Eliminar nombres BodegApp en comentarios distribuidos, nombres de archivos, alt text y metadatos.
+- [x] Cambiar cachés/service worker y versionarlos para no conservar branding viejo.
+- [x] Ejecutar búsqueda case-insensitive final excluyendo solo historial de migración explícitamente justificado.
 
 **Prueba de aceptación:** `rg -i 'bodegapp|bodega app|bodega-app'` no devuelve referencias distribuidas; Stokko abre y conserva datos existentes.
 

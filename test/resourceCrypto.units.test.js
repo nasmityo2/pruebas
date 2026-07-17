@@ -34,8 +34,8 @@ test('descifrar con clave equivocada (sin licencia válida) FALLA', () => {
 });
 
 test('watermark: determinista por licencia y distinto entre licencias', () => {
-  assert.strictEqual(wm.licenseWatermark('BGA-AAAA-BBBB'), wm.licenseWatermark('BGA-AAAA-BBBB'));
-  assert.notStrictEqual(wm.licenseWatermark('BGA-AAAA-BBBB'), wm.licenseWatermark('BGA-CCCC-DDDD'));
-  assert.match(wm.licenseWatermark('BGA-AAAA-BBBB'), /^[0-9A-F]{8}$/);
+  assert.strictEqual(wm.licenseWatermark('STK-AAAA-BBBB'), wm.licenseWatermark('STK-AAAA-BBBB'));
+  assert.notStrictEqual(wm.licenseWatermark('STK-AAAA-BBBB'), wm.licenseWatermark('STK-CCCC-DDDD'));
+  assert.match(wm.licenseWatermark('STK-AAAA-BBBB'), /^[0-9A-F]{8}$/);
   assert.strictEqual(wm.licenseWatermark(''), '');
 });

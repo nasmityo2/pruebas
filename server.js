@@ -259,7 +259,7 @@ function isLicensedNow() {
   // SOLO DESARROLLO Y OPT-IN: se omite el gate únicamente si NO está empaquetada
   // (main.js fuerza NODE_ENV='production' en el build) Y además está la bandera explícita.
   // Por defecto (npm start) el gate queda ACTIVO para poder probar el flujo de licencias.
-  if (process.env.NODE_ENV !== 'production' && process.env.BODEGAPP_DEV_NO_LICENSE === '1') {
+  if (process.env.NODE_ENV !== 'production' && process.env.STOKKO_DEV_NO_LICENSE === '1') {
     return true;
   }
   const now = Date.now();

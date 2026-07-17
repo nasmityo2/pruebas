@@ -1,11 +1,11 @@
-# Script para publicar actualizaciones de BodegApp
+# Script para publicar actualizaciones de Stokko
 # Uso: .\publish-update.ps1 -version "1.2.0" -url "https://github.com/.../app.exe" -changelog "Mejoras en POS", "Corrección en reportes"
 
 param (
     [string]$version = "1.1.26.3.23",
-    [string]$url = "https://tu-repositorio.com/descargas/BodegApp_Setup.exe",
+    [string]$url = "https://tu-repositorio.com/descargas/Stokko_Setup.exe",
     [string[]]$changelog = @("Actualización de mantenimiento", "Mejoras de estabilidad"),
-    [string]$description = "Una nueva versión de BodegApp está lista para descargar.",
+    [string]$description = "Una nueva versión de Stokko está lista para descargar.",
     # La API key se lee del entorno (SHARED_API_KEY). Sin fallback hardcodeado.
     [string]$apiKey = $env:SHARED_API_KEY,
     [string]$serverUrl = "http://localhost:3000" # Cambiar al dominio real en producción

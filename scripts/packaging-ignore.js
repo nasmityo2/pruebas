@@ -5,7 +5,7 @@
 const path = require('path');
 
 const IGNORED_ROOT_FOLDERS = [
-  'UpdateServer', 'BodegAppUpdater', 'temp_extracted', 'stokko-license-server',
+  'UpdateServer', 'StokkoUpdater', 'temp_extracted', 'stokko-license-server',
   'mobile_client', 'out', 'dist', 'build', 'test-electron',
   'nodejs-assets', 'tmp', 'Compras', 'updater', 'respaldo',
   '.git', '.agent', '.vscode', '.cursor',

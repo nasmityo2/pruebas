@@ -55,3 +55,12 @@ Este registro no incluye valores de secretos, tokens, licencias ni datos persona
 - Impacto: código del servidor y dependencias se distribuían al cliente; una futura clave colocada allí habría podido filtrarse.
 - Corrección: normalización única de ruta absoluta/relativa y exclusión por ruta relativa raíz.
 - Prueba: tres tests de regresión; package repetido; ASAR 7320 entradas con 0 coincidencias del servidor, `.env`, claves o datos runtime.
+
+## H-007 — La suite escribía en AppData real
+
+- Severidad: alta.
+- Ubicación: `test/security.units.test.js`, carga global de `src/utils/settings.js`.
+- Reproducción: tras cambiar el nombre de datos, `npm test` creó `%APPDATA%\Stokko_Data` y un `backup.key`; además un test de backup dependía de que existiera una DB real.
+- Impacto: pruebas no herméticas podían alterar datos del usuario o pasar/fallar según el equipo.
+- Corrección: `test/setup-env.js` asigna APPDATA/PROGRAMDATA únicos por proceso, crea un fixture SQLite mínimo y elimina el árbol al salir; el residuo observado se retiró.
+- Prueba: `npm test` posterior, 94/94 pass sin crear `%APPDATA%\Stokko_Data`.

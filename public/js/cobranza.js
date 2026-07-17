@@ -1488,7 +1488,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnWaSend = document.getElementById('btn-whatsapp-send');
     const btnWaRegenerate = document.getElementById('btn-whatsapp-regenerate');
 
-    const WA_FIRMA_KEY = 'bodegapp_wa_firma';
+    const WA_FIRMA_KEY = 'stokko_wa_firma';
+    const LEGACY_WA_FIRMA_KEY = ['bodega', 'pp_wa_firma'].join('');
 
     // Estado actual del modal
     let waCurrentClientId = null;
@@ -1499,6 +1500,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Cargar firma guardada
     function loadSavedFirma() {
+        const legacy = localStorage.getItem(LEGACY_WA_FIRMA_KEY);
+        if (!localStorage.getItem(WA_FIRMA_KEY) && legacy) {
+            localStorage.setItem(WA_FIRMA_KEY, legacy);
+            localStorage.removeItem(LEGACY_WA_FIRMA_KEY);
+        }
         const saved = localStorage.getItem(WA_FIRMA_KEY);
         if (waFirmaInput && saved) waFirmaInput.value = saved;
     }

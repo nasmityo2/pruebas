@@ -64,7 +64,7 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    showMessage('¡Activado con éxito! Abriendo BodegApp...', 'success');
+                    showMessage('¡Activado con éxito! Abriendo Stokko...', 'success');
                     setTimeout(goToApp, 900);
                 } else {
                     showMessage(data.message || 'No se pudo activar.', 'error');
@@ -88,7 +88,7 @@
                 const res = await fetch('/api/license/start-trial', { method: 'POST' });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    showMessage('Prueba iniciada. Abriendo BodegApp...', 'success');
+                    showMessage('Prueba iniciada. Abriendo Stokko...', 'success');
                     setTimeout(goToApp, 900);
                 } else {
                     showMessage(data.message || 'No se pudo iniciar la prueba.', 'error');

@@ -17,9 +17,9 @@ const RUNTIME_NAMES = new Set([
 ]);
 const COMPROMISED_MARKERS = [
   ['super', 'secret'].join('-'),
-  ['bodegapp', 'master'].join('-'),
-  ['bodegapp', 'secreto'].join('-'),
-  ['bodegapp', 'super', 'secreto'].join('-'),
+  [['bodega', 'pp'].join(''), 'master'].join('-'),
+  [['bodega', 'pp'].join(''), 'secreto'].join('-'),
+  [['bodega', 'pp'].join(''), 'super', 'secreto'].join('-'),
 ];
 const compromisedExpression = `(?:${COMPROMISED_MARKERS.join('|')})[\\w!.-]*`;
 const CONTENT_RULES = [

@@ -1,8 +1,9 @@
 // src/utils/settings.js
 const fs = require('fs');
 const path = require('path');
+const { getStokkoDataPath } = require('./dataPaths');
 
-const dataBasePath = path.join(process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : '/var/local'), 'BodegApp_Data');
+const dataBasePath = getStokkoDataPath();
 
 if (!fs.existsSync(dataBasePath)) {
   try {
@@ -16,7 +17,7 @@ if (!fs.existsSync(dataBasePath)) {
 const settingsPath = path.join(dataBasePath, 'business-settings.json');
 
 const DEFAULT_SETTINGS = {
-  businessName: "BodegApp",
+  businessName: "Stokko",
   logoPath: "/images/default-logo.png",
   licenseKey: "",
   adminPasswordHash: null,
